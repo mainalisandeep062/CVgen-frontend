@@ -1,19 +1,30 @@
 import axios from 'axios';
-import { jwtDecode } from 'jwt-decode';
+
+import { API_BASE_URL } from '@/config';
+import {
+  getAccessToken,
+  setAccessToken,
+  clearAccessToken,
+} from '@/auth/tokenStore';
 
 /**
- * Axios instance for authenticated API requests.
- * baseURL is read from VITE_API_BASE_URL env var (default: http://localhost:8080).
+ * Shared axios instance for authenticated API requests.
+ *
+ * withCredentials:true is REQUIRED, not optional — the backend issues the
+ * refresh token and the trusted-device token as httpOnly cookies and its CORS
+ * config runs with allowCredentials. Without this flag the browser silently
+ * drops those cookies and both the /refresh flow and the skip-OTP
+ * trusted-device flow can never work.
  */
-
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
-// Request interceptor: attach Authorization header if token exists
+// Attach the bearer access token to every request when one is present.
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -22,15 +33,66 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: on 401, clear auth state and redirect to login
+/**
+ * Single-flight refresh: if several requests 401 at once, they all await the
+ * same in-flight /refresh call rather than firing N of them.
+ */
+let refreshPromise = null;
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    // Use a bare axios call, NOT `api`, so this request doesn't recurse through
+    // this same response interceptor if /refresh itself 401s.
+    refreshPromise = axios
+      .post(`${API_BASE_URL}/api/auth/refresh`, null, { withCredentials: true })
+      .then((res) => {
+        const newToken = res.data?.accessToken;
+        if (!newToken) {
+          throw new Error('Refresh response missing accessToken');
+        }
+        setAccessToken(newToken);
+        return newToken;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+/**
+ * On 401, attempt ONE refresh (POST /api/auth/refresh reads the httpOnly
+ * refresh cookie, rotates it, returns a fresh access token) and retry the
+ * original request once. If refresh fails — expired/rotated/missing cookie, or
+ * a session that never had a refresh cookie (local login and OTP verify do not
+ * set one on the current backend) — clear auth and bounce to /login.
+ *
+ * The `_retry` guard and the endpoint check prevent an infinite 401 loop.
+ */
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      sessionStorage.removeItem('accessToken');
-      sessionStorage.removeItem('refreshToken');
-      window.location.href = '/login';
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+
+    const isRefreshCall = original?.url?.includes('/api/auth/refresh');
+
+    if (status === 401 && original && !original._retry && !isRefreshCall) {
+      original._retry = true;
+      try {
+        const newToken = await refreshAccessToken();
+        original.headers = original.headers || {};
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      } catch {
+        clearAccessToken();
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
     }
+
     return Promise.reject(error);
   }
 );
