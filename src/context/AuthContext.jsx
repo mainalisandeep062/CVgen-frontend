@@ -1,78 +1,91 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
 import { jwtDecode } from 'jwt-decode';
 
+import api from '@/api/axios';
+import {
+  getAccessToken,
+  setAccessToken,
+  clearAccessToken,
+  AUTH_CHANGED_EVENT,
+} from '@/auth/tokenStore';
+
 /**
- * AuthContext - Manages authentication state for the OAuth login shell.
+ * AuthContext — the single source of auth state for the app.
  *
- * NOTE: sessionStorage is used here for the dev-flow build. In production,
- * access tokens should be stored in httpOnly cookies (requires backend changes)
- * to prevent XSS attacks. This is out of scope for the current build.
+ * The access token is kept in sessionStorage (via tokenStore) and decoded
+ * client-side with jwt-decode purely to read display claims and the `exp`
+ * expiry — the signature is verified by the backend, not here, which is
+ * correct: the frontend only needs the claims, not to trust them.
+ *
+ * NOTE: sessionStorage is a deliberate dev-flow choice, not hardened storage.
+ * A production build would keep the access token out of JS-readable storage
+ * too; that's a backend-coupled change and out of scope here.
+ *
+ * The refresh token is NOT handled in JS — it's an httpOnly cookie the browser
+ * holds. Token renewal happens transparently in the axios 401 interceptor.
  */
 
 const AuthContext = createContext(null);
 
+function decodeUser(token) {
+  if (!token) return null;
+  try {
+    return jwtDecode(token);
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [accessToken, setAccessToken] = useState(() => {
-    try {
-      return sessionStorage.getItem('accessToken') || null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => decodeUser(getAccessToken()));
 
-  const [user, setUser] = useState(() => {
-    try {
-      const token = sessionStorage.getItem('accessToken');
-      return token ? jwtDecode(token) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const login = useCallback((tokens) => {
-    // tokens = { accessToken, refreshToken }
-    sessionStorage.setItem('accessToken', tokens.accessToken);
-    // refreshToken is stored but currently unused — no refresh endpoint exists on the backend.
-    // When the access token expires, the user must log in again via OAuth.
-    sessionStorage.setItem('refreshToken', tokens.refreshToken);
-
-    const decoded = jwtDecode(tokens.accessToken);
-    setAccessToken(tokens.accessToken);
-    setUser(decoded);
+  // Re-derive user state whenever the token changes — same tab (auth:changed,
+  // dispatched by tokenStore including from the axios refresh interceptor) or
+  // another tab (native storage event).
+  useEffect(() => {
+    const sync = () => setUser(decodeUser(getAccessToken()));
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
   }, []);
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('refreshToken');
-    setAccessToken(null);
+  /**
+   * Persist a freshly issued access token and update React state.
+   * @param {{ accessToken: string }} tokens - backend TokenResponse shape.
+   */
+  const login = useCallback((tokens) => {
+    setAccessToken(tokens.accessToken);
+    setUser(decodeUser(tokens.accessToken));
+  }, []);
+
+  /**
+   * Clear the session. Calls the backend so it can expire the httpOnly refresh
+   * cookie (POST /api/auth/logout → 204); local storage is cleared regardless
+   * of whether that call succeeds, so logout is never blocked by the network.
+   */
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/api/auth/logout');
+    } catch {
+      // Best-effort — the cookie may already be gone or the server unreachable.
+    }
+    clearAccessToken();
     setUser(null);
   }, []);
 
-  // Sync auth state across tabs (optional UX improvement)
-  useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key === 'accessToken') {
-        if (e.newValue) {
-          setAccessToken(e.newValue);
-          try {
-            setUser(jwtDecode(e.newValue));
-          } catch {
-            setUser(null);
-          }
-        } else {
-          setAccessToken(null);
-          setUser(null);
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  const isAuthenticated = Boolean(accessToken) && user && user.exp * 1000 > Date.now();
+  const isAuthenticated = Boolean(user) && user.exp * 1000 > Date.now();
 
   return (
-    <AuthContext.Provider value={{ accessToken, user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
