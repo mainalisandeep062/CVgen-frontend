@@ -1,12 +1,18 @@
 /**
  * Access-token storage, shared between the axios layer and AuthContext.
  *
- * The access token lives in sessionStorage (a documented dev-flow choice —
- * see AuthContext for why). This module is the single writer so that the
- * axios 401/refresh interceptor and the React auth state never disagree:
- * every mutation dispatches an `auth:changed` window event that AuthContext
- * listens to, giving same-tab reactivity that the native `storage` event
- * (cross-tab only) does not provide.
+ * The access token lives ONLY in memory (a module-level variable) — it is never
+ * written to sessionStorage/localStorage, so it is not readable by injected
+ * scripts across a reload and it does not survive a page refresh. Durable
+ * session identity is carried by the httpOnly refresh cookie instead: on every
+ * app load AuthContext calls /api/auth/refresh once to mint a fresh access
+ * token back into this store (see AuthContext bootstrap).
+ *
+ * This module is the single writer so that the axios 401/refresh interceptor
+ * and the React auth state never disagree: every mutation dispatches an
+ * `auth:changed` window event that AuthContext listens to, giving same-tab
+ * reactivity. (Being in-memory, the token is inherently per-tab; there is no
+ * cross-tab `storage` event to mirror.)
  *
  * The backend only ever returns an access token in the JSON body
  * (TokenResponse = { accessToken }). The refresh token is an httpOnly cookie
@@ -14,15 +20,12 @@
  * refresh-token entry here.
  */
 
-const ACCESS_TOKEN_KEY = 'accessToken';
 export const AUTH_CHANGED_EVENT = 'auth:changed';
 
+let accessToken = null;
+
 export function getAccessToken() {
-  try {
-    return sessionStorage.getItem(ACCESS_TOKEN_KEY) || null;
-  } catch {
-    return null;
-  }
+  return accessToken;
 }
 
 function notify() {
@@ -30,19 +33,11 @@ function notify() {
 }
 
 export function setAccessToken(token) {
-  try {
-    sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
-  } catch {
-    // sessionStorage unavailable (e.g. privacy mode) — nothing else we can do.
-  }
+  accessToken = token || null;
   notify();
 }
 
 export function clearAccessToken() {
-  try {
-    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-  } catch {
-    // ignore
-  }
+  accessToken = null;
   notify();
 }
