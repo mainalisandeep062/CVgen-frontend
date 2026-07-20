@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
-import api from '@/api/axios';
+import api, { refreshAccessToken } from '@/api/axios';
 import {
   getAccessToken,
   setAccessToken,
@@ -18,17 +18,22 @@ import {
 /**
  * AuthContext — the single source of auth state for the app.
  *
- * The access token is kept in sessionStorage (via tokenStore) and decoded
+ * The access token is kept only in memory (via tokenStore) and decoded
  * client-side with jwt-decode purely to read display claims and the `exp`
  * expiry — the signature is verified by the backend, not here, which is
  * correct: the frontend only needs the claims, not to trust them.
  *
- * NOTE: sessionStorage is a deliberate dev-flow choice, not hardened storage.
- * A production build would keep the access token out of JS-readable storage
- * too; that's a backend-coupled change and out of scope here.
+ * Because the access token is in-memory, it is gone after any page reload. The
+ * durable session identity is the httpOnly refresh cookie, so on mount this
+ * provider runs a ONE-SHOT bootstrap: it calls /api/auth/refresh once to try to
+ * mint a fresh access token from that cookie. Until that call settles,
+ * `bootstrapped` is false and route guards must wait — otherwise a reload would
+ * momentarily look unauthenticated and bounce a valid session to /login before
+ * the refresh could complete.
  *
  * The refresh token is NOT handled in JS — it's an httpOnly cookie the browser
- * holds. Token renewal happens transparently in the axios 401 interceptor.
+ * holds. Ongoing token renewal happens transparently in the axios 401
+ * interceptor; this bootstrap reuses that same single-flight refresh.
  */
 
 const AuthContext = createContext(null);
@@ -44,17 +49,32 @@ function decodeUser(token) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => decodeUser(getAccessToken()));
+  const [bootstrapped, setBootstrapped] = useState(false);
 
-  // Re-derive user state whenever the token changes — same tab (auth:changed,
-  // dispatched by tokenStore including from the axios refresh interceptor) or
-  // another tab (native storage event).
+  // Re-derive user state whenever the token changes (auth:changed, dispatched by
+  // tokenStore including from the axios refresh interceptor and the bootstrap).
+  // The token is in-memory and per-tab, so there is no cross-tab storage event.
   useEffect(() => {
     const sync = () => setUser(decodeUser(getAccessToken()));
     window.addEventListener(AUTH_CHANGED_EVENT, sync);
-    window.addEventListener('storage', sync);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+  }, []);
+
+  // One-shot bootstrap: try to mint an access token from the httpOnly refresh
+  // cookie on load. On success the refresh helper writes the token to tokenStore
+  // (firing auth:changed → sync above); on failure there is simply no session.
+  // Either way we flip `bootstrapped` so the route guards can render.
+  useEffect(() => {
+    let cancelled = false;
+    refreshAccessToken()
+      .catch(() => {
+        // No valid refresh cookie — stay logged out. Not an error to surface.
+      })
+      .finally(() => {
+        if (!cancelled) setBootstrapped(true);
+      });
     return () => {
-      window.removeEventListener(AUTH_CHANGED_EVENT, sync);
-      window.removeEventListener('storage', sync);
+      cancelled = true;
     };
   }, []);
 
@@ -85,7 +105,9 @@ export function AuthProvider({ children }) {
   const isAuthenticated = Boolean(user) && user.exp * 1000 > Date.now();
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, bootstrapped, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

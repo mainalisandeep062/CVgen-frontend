@@ -39,7 +39,14 @@ api.interceptors.request.use(
  */
 let refreshPromise = null;
 
-function refreshAccessToken() {
+/**
+ * Mint a fresh access token from the httpOnly refresh cookie and store it.
+ * Exported so the app-load bootstrap (AuthContext) can reuse the exact same
+ * single-flight call the 401 interceptor uses — a bootstrap refresh racing an
+ * early 401 will therefore share one in-flight request, not fire two. Rejects
+ * if there is no valid refresh cookie; callers treat that as "logged out".
+ */
+export function refreshAccessToken() {
   if (!refreshPromise) {
     // Use a bare axios call, NOT `api`, so this request doesn't recurse through
     // this same response interceptor if /refresh itself 401s.
