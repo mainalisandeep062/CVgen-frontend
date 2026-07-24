@@ -14,10 +14,11 @@
  * reactivity. (Being in-memory, the token is inherently per-tab; there is no
  * cross-tab `storage` event to mirror.)
  *
- * The backend only ever returns an access token in the JSON body
- * (TokenResponse = { accessToken }). The refresh token is an httpOnly cookie
- * the browser holds and JS cannot read — so there is intentionally no
- * refresh-token entry here.
+ * The backend only ever returns an access token in the JSON body — wrapped in
+ * the standard envelope, so it reads as `data.data.accessToken` (see
+ * api/response.js). The refresh token and the trusted-device remember-me token
+ * are httpOnly cookies the browser holds and JS cannot read — so there is
+ * intentionally no entry for either here.
  */
 
 export const AUTH_CHANGED_EVENT = 'auth:changed';

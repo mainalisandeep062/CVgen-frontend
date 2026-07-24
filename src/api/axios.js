@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { API_BASE_URL } from '@/config';
+import { unwrap, HTTP } from '@/api/response';
 import {
   getAccessToken,
   setAccessToken,
@@ -45,6 +46,10 @@ let refreshPromise = null;
  * single-flight call the 401 interceptor uses — a bootstrap refresh racing an
  * early 401 will therefore share one in-flight request, not fire two. Rejects
  * if there is no valid refresh cookie; callers treat that as "logged out".
+ *
+ * The response is the standard envelope, so the token sits at `data.data`
+ * (see api/response.js) — reading `data.accessToken` here silently yields
+ * undefined and logs every session out on load.
  */
 export function refreshAccessToken() {
   if (!refreshPromise) {
@@ -53,7 +58,7 @@ export function refreshAccessToken() {
     refreshPromise = axios
       .post(`${API_BASE_URL}/api/auth/refresh`, null, { withCredentials: true })
       .then((res) => {
-        const newToken = res.data?.accessToken;
+        const newToken = unwrap(res)?.accessToken;
         if (!newToken) {
           throw new Error('Refresh response missing accessToken');
         }
@@ -68,13 +73,31 @@ export function refreshAccessToken() {
 }
 
 /**
+ * Endpoints that are 401-able as a NORMAL outcome rather than as an expired
+ * session. Since the backend cleanup, a wrong email/password answers 401
+ * (it used to be 400) — if that fell through to the refresh-and-retry branch
+ * below, a failed sign-in would trigger a bogus refresh, clear auth and
+ * hard-navigate to /login, destroying the form and the error the user needs to
+ * see. None of these calls carry an access token in the first place, so a
+ * refresh could never help them.
+ */
+const UNAUTHENTICATED_ENDPOINTS = [
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/otp/verify',
+  '/api/auth/otp/resend',
+  '/api/auth/oauth/exchange',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+];
+
+/**
  * On 401, attempt ONE refresh (POST /api/auth/refresh reads the httpOnly
  * refresh cookie, rotates it, returns a fresh access token) and retry the
- * original request once. If refresh fails — expired/rotated/missing cookie, or
- * a session that never had a refresh cookie (local login and OTP verify do not
- * set one on the current backend) — clear auth and bounce to /login.
+ * original request once. If refresh fails — expired, rotated or missing
+ * cookie — clear auth and bounce to /login.
  *
- * The `_retry` guard and the endpoint check prevent an infinite 401 loop.
+ * The `_retry` guard and the endpoint list prevent an infinite 401 loop.
  */
 api.interceptors.response.use(
   (response) => response,
@@ -82,9 +105,17 @@ api.interceptors.response.use(
     const original = error.config;
     const status = error.response?.status;
 
-    const isRefreshCall = original?.url?.includes('/api/auth/refresh');
+    const url = original?.url || '';
+    const isUnauthenticatedCall = UNAUTHENTICATED_ENDPOINTS.some((endpoint) =>
+      url.includes(endpoint)
+    );
 
-    if (status === 401 && original && !original._retry && !isRefreshCall) {
+    if (
+      status === HTTP.UNAUTHORIZED &&
+      original &&
+      !original._retry &&
+      !isUnauthenticatedCall
+    ) {
       original._retry = true;
       try {
         const newToken = await refreshAccessToken();
