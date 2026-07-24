@@ -3,29 +3,33 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
-import { API_BASE_URL } from '@/config';
+import { exchangeOAuthCode } from '@/api/auth';
+import { unwrap } from '@/api/response';
 
 /**
  * AuthSuccess page — handles the OAuth callback after a successful identity
  * provider login. The backend redirects here with ?code=<exchangeCode>.
  * This page exchanges the code for an access token, then goes to /dashboard.
  *
- * The exchange code is single-use on the backend, so this effect must run
- * exactly once per code. React StrictMode double-invokes effects in dev, which
- * would otherwise burn the code on the first call and fail on the second — the
- * `hasRun` ref guards against that.
+ * The exchange code is single-use on the backend and expires after 60s, so this
+ * effect must run exactly once per code. React StrictMode double-invokes effects
+ * in dev, which would otherwise burn the code on the first call and fail on the
+ * second — the `hasRun` ref guards against that.
  *
- * Two things this call MUST get right against the verified backend
- * (AuthController.exchangeCode + TokenResponse):
- *   1. The JSON body is TokenResponse = { accessToken } ONLY. There is no
- *      refreshToken in the body — it's returned as an httpOnly Set-Cookie. So
- *      we require ONLY accessToken; gating on refreshToken (as the old code
- *      did) failed every correct response.
- *   2. `credentials: 'include'` is required, or the browser drops that
- *      Set-Cookie refresh cookie and the later /refresh flow can never work.
+ * Two things this call MUST get right against the backend
+ * (AuthController.exchangeCode):
+ *   1. The body is the GlobalApiResponse envelope, so the token is at
+ *      `data.data.accessToken`. There is no refreshToken in the body at all —
+ *      it comes back as an httpOnly Set-Cookie.
+ *   2. Credentials must be sent, or the browser drops that Set-Cookie refresh
+ *      cookie and the later /refresh flow can never work.
  *
- * This is the one deliberate raw-fetch exception to the "use the api instance"
- * rule: no access token exists yet at this point.
+ * This used to be a hand-rolled `fetch` because no access token exists yet at
+ * this point. That exception is no longer needed: the shared `api` instance
+ * only attaches an Authorization header when a token is present, already sets
+ * withCredentials, and — since /api/auth/oauth/exchange is on the
+ * unauthenticated list in api/axios.js — will not try to refresh-and-retry a
+ * failed exchange.
  */
 export default function AuthSuccess() {
   const [searchParams] = useSearchParams();
@@ -45,34 +49,23 @@ export default function AuthSuccess() {
       return;
     }
 
-    const exchangeCode = async () => {
+    const exchange = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/oauth/exchange`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ code }),
-        });
+        const accessToken = unwrap(await exchangeOAuthCode(code))?.accessToken;
 
-        if (!response.ok) {
-          throw new Error('Exchange failed');
+        if (!accessToken) {
+          throw new Error('Exchange response missing accessToken');
         }
 
-        const data = await response.json();
-
-        if (data.accessToken) {
-          login({ accessToken: data.accessToken });
-          navigate('/dashboard', { replace: true });
-        } else {
-          throw new Error('Invalid token response');
-        }
+        login({ accessToken });
+        navigate('/dashboard', { replace: true });
       } catch {
         setStatus('error');
         navigate('/login?error=exchange_failed', { replace: true });
       }
     };
 
-    exchangeCode();
+    exchange();
   }, [searchParams, navigate, login]);
 
   return (
