@@ -15,6 +15,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { login as loginRequest } from '@/api/auth';
+import {
+  HTTP,
+  unwrap,
+  apiMessage,
+  apiStatus,
+  applyFieldErrors,
+} from '@/api/response';
 import { OTP_PURPOSE } from '@/config';
 
 const schema = z.object({
@@ -27,10 +34,15 @@ const schema = z.object({
  * Login page — local email/password sign-in with the OTP-required and
  * trusted-device branches, plus the OAuth providers.
  *
- * Backend /api/auth/login outcomes:
- *   200 TokenResponse{accessToken}          → trusted device, sign in directly
- *   202 OtpResponse{status:"OTP_REQUIRED"}  → go to OTP screen (purpose LOGIN)
- *   400 OtpResponse{status:"INVALID_CREDENTIALS"} → inline error
+ * Backend /api/auth/login outcomes, keyed on the HTTP status (the old
+ * `data.status` outcome strings are gone — `status` is now a boolean):
+ *   200 data:{accessToken}      trusted device, sign in directly
+ *   202 data:{email, purpose}   OTP challenge, go to the OTP screen
+ *   401                         invalid credentials, inline on the password field
+ *   400 error:[...]             validation failure, mapped onto the fields
+ *
+ * Failure wording comes from the response `message`, which the backend already
+ * localizes; the literals here are network-level fallbacks only.
  */
 export default function Login() {
   const navigate = useNavigate();
@@ -63,20 +75,22 @@ export default function Login() {
   const onSubmit = async (values) => {
     try {
       const res = await loginRequest(values);
+      const data = unwrap(res);
 
-      if (res.status === 200 && res.data?.accessToken) {
+      if (res.status === HTTP.OK && data?.accessToken) {
         // Trusted device — OTP skipped.
-        login({ accessToken: res.data.accessToken });
+        login({ accessToken: data.accessToken });
         navigate('/dashboard', { replace: true });
         return;
       }
 
-      if (res.data?.status === 'OTP_REQUIRED') {
+      if (res.status === HTTP.ACCEPTED) {
         navigate('/verify-otp', {
           replace: true,
           state: {
-            email: values.email,
-            purpose: OTP_PURPOSE.LOGIN,
+            email: data?.email || values.email,
+            // Echo the purpose the backend chose rather than assuming LOGIN.
+            purpose: data?.purpose || OTP_PURPOSE.LOGIN,
             rememberMe: Boolean(values.rememberMe),
           },
         });
@@ -86,15 +100,24 @@ export default function Login() {
       // Any other 2xx shape is unexpected given the verified contract.
       toast.error('Unexpected response from server. Please try again.');
     } catch (err) {
-      const status = err.response?.data?.status;
-      if (status === 'INVALID_CREDENTIALS') {
+      const status = apiStatus(err);
+
+      if (status === HTTP.UNAUTHORIZED) {
         setError('password', {
           type: 'server',
-          message: 'Invalid email or password.',
+          message: apiMessage(err, 'Invalid email or password.'),
         });
-      } else {
-        toast.error('Could not sign in. Please try again.');
+        return;
       }
+
+      if (
+        status === HTTP.BAD_REQUEST &&
+        applyFieldErrors(err, setError, ['email', 'password'])
+      ) {
+        return;
+      }
+
+      toast.error(apiMessage(err, 'Could not sign in. Please try again.'));
     }
   };
 

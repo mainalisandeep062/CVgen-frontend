@@ -20,7 +20,12 @@ export function oauthAuthorizeUrl(provider) {
   return `${API_BASE_URL}/oauth2/authorization/${provider}`;
 }
 
-/** OTP purpose constants — literal strings the backend's OtpService expects. */
+/**
+ * OTP purpose constants — the serialized values of the backend `OtpPurpose`
+ * enum. Now that the DTOs type this field as the enum rather than a String,
+ * any other value fails deserialization with a 400 instead of being accepted
+ * and quietly mismatching, so these must stay exact.
+ */
 export const OTP_PURPOSE = {
   SIGNUP: 'SIGNUP',
   LOGIN: 'LOGIN',
@@ -31,3 +36,13 @@ export const OTP_RESEND_COOLDOWN_SECONDS = 60;
 
 /** Backend OTP length (OtpService.OTP_LENGTH). */
 export const OTP_LENGTH = 6;
+
+/**
+ * Password bounds enforced server-side by
+ * `SignUpRequestDto @Size(min = 8, max = 72)`. Mirrored here only so the user
+ * sees the failure before a round trip — the backend remains the authority,
+ * and its rejection is rendered on the field either way. 72 is the BCrypt
+ * input limit, not an arbitrary cap.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 72;

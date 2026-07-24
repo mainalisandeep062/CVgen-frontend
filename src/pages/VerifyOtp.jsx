@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/input-otp';
 import { useAuth } from '@/context/AuthContext';
 import { verifyOtp, resendOtp } from '@/api/auth';
+import { HTTP, unwrap, apiMessage, apiStatus } from '@/api/response';
 import { OTP_LENGTH, OTP_PURPOSE, OTP_RESEND_COOLDOWN_SECONDS } from '@/config';
 
 /**
@@ -21,15 +22,17 @@ import { OTP_LENGTH, OTP_PURPOSE, OTP_RESEND_COOLDOWN_SECONDS } from '@/config';
  * visit bounces back to /login.
  *
  * Backend /api/auth/otp/verify outcomes:
- *   200 TokenResponse{accessToken}      → signed in; on rememberMe the backend
- *                                         also sets the trusted-device cookie
- *   400 OtpResponse{status:"INVALID_OTP"} → wrong / expired / too-many-attempts
+ *   200 data:{accessToken}  signed in; on rememberMe the backend also sets the
+ *                           trusted-device cookie
+ *   400                     wrong / expired / too-many-attempts
  *
  * IMPORTANT: the backend's OtpService.verify() returns a single boolean, so a
  * wrong code, an expired code (10 min), and exceeding the 5-attempt cap all
- * collapse into the SAME 400 INVALID_OTP response. The frontend genuinely
- * cannot tell them apart — so the message stays deliberately general and points
- * the user at "Resend" rather than claiming to know which case occurred.
+ * collapse into the SAME 400 response. The frontend genuinely cannot tell them
+ * apart — the backend's own message is deliberately general for that reason, so
+ * it is shown as-is rather than being re-guessed here.
+ *
+ * Resend answers 202 on success and 429 while the 60s cooldown is still open.
  */
 export default function VerifyOtp() {
   const navigate = useNavigate();
@@ -73,20 +76,19 @@ export default function VerifyOtp() {
           rememberMe: Boolean(rememberMe),
         });
 
-        if (res.status === 200 && res.data?.accessToken) {
-          login({ accessToken: res.data.accessToken });
+        const data = unwrap(res);
+
+        if (res.status === HTTP.OK && data?.accessToken) {
+          login({ accessToken: data.accessToken });
           navigate('/dashboard', { replace: true });
           return;
         }
 
         toast.error('Unexpected response from server. Please try again.');
       } catch (err) {
-        const status = err.response?.data?.status;
-        if (status === 'INVALID_OTP') {
-          toast.error('That code is invalid or has expired. Try again or resend.');
-        } else {
-          toast.error('Could not verify the code. Please try again.');
-        }
+        toast.error(
+          apiMessage(err, 'Could not verify the code. Please try again.')
+        );
         setCode('');
       } finally {
         setSubmitting(false);
@@ -106,17 +108,19 @@ export default function VerifyOtp() {
     if (cooldown > 0 || resending) return;
     setResending(true);
     try {
-      await resendOtp({ email, purpose });
-      toast.success('A new code has been sent to your email.');
+      const res = await resendOtp({ email, purpose });
+      toast.success(
+        apiMessage(res, 'A new code has been sent to your email.')
+      );
       setCode('');
       setCooldown(OTP_RESEND_COOLDOWN_SECONDS);
     } catch (err) {
-      const status = err.response?.data?.status;
-      if (status === 'RESEND_COOLDOWN') {
-        toast.info('Please wait before requesting another code.');
+      if (apiStatus(err) === HTTP.TOO_MANY_REQUESTS) {
+        // Server-side cooldown still open — resync the local countdown with it.
+        toast.info(apiMessage(err, 'Please wait before requesting another code.'));
         setCooldown(OTP_RESEND_COOLDOWN_SECONDS);
       } else {
-        toast.error('Could not resend the code. Please try again.');
+        toast.error(apiMessage(err, 'Could not resend the code. Please try again.'));
       }
     } finally {
       setResending(false);

@@ -7,7 +7,8 @@ import {
 } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
-import api, { refreshAccessToken } from '@/api/axios';
+import { refreshAccessToken } from '@/api/axios';
+import { logout as logoutRequest } from '@/api/auth';
 import {
   getAccessToken,
   setAccessToken,
@@ -88,13 +89,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Clear the session. Calls the backend so it can expire the httpOnly refresh
-   * cookie (POST /api/auth/logout → 204); local storage is cleared regardless
-   * of whether that call succeeds, so logout is never blocked by the network.
+   * Clear the session. Calls the backend so it can expire BOTH httpOnly cookies
+   * — the refresh cookie and the trusted-device remember-me cookie, which
+   * logout now also clears, so signing out really does re-arm the OTP challenge
+   * on the next sign-in from this device. The response is 200 with the standard
+   * envelope (it was 204 before); nothing is read from it. In-memory state is
+   * cleared regardless of whether the call succeeds, so logout is never blocked
+   * by the network.
    */
   const logout = useCallback(async () => {
     try {
-      await api.post('/api/auth/logout');
+      await logoutRequest();
     } catch {
       // Best-effort — the cookie may already be gone or the server unreachable.
     }
