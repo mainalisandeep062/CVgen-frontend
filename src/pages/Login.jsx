@@ -11,7 +11,6 @@ import OAuthButtons from '@/components/OAuthButtons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { login as loginRequest } from '@/api/auth';
@@ -27,7 +26,6 @@ import { OTP_PURPOSE } from '@/config';
 const schema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
   password: z.string().min(1, 'Password is required'),
-  rememberMe: z.boolean().optional(),
 });
 
 /**
@@ -43,6 +41,10 @@ const schema = z.object({
  *
  * Failure wording comes from the response `message`, which the backend already
  * localizes; the literals here are network-level fallbacks only.
+ *
+ * Remember-this-device is NOT asked here. Only the OTP verification issues the
+ * trusted-device token, so the choice is made on that screen — which also means
+ * the 200 branch below (already-trusted device) never needs to ask at all.
  */
 export default function Login() {
   const navigate = useNavigate();
@@ -61,16 +63,12 @@ export default function Login() {
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     setError,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '', rememberMe: false },
+    defaultValues: { email: '', password: '' },
   });
-
-  const rememberMe = watch('rememberMe');
 
   const onSubmit = async (values) => {
     try {
@@ -91,7 +89,6 @@ export default function Login() {
             email: data?.email || values.email,
             // Echo the purpose the backend chose rather than assuming LOGIN.
             purpose: data?.purpose || OTP_PURPOSE.LOGIN,
-            rememberMe: Boolean(values.rememberMe),
           },
         });
         return;
@@ -172,19 +169,6 @@ export default function Login() {
           {errors.password && (
             <p className="text-sm text-destructive">{errors.password.message}</p>
           )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="rememberMe"
-            checked={rememberMe}
-            onCheckedChange={(checked) =>
-              setValue('rememberMe', checked === true)
-            }
-          />
-          <Label htmlFor="rememberMe" className="font-normal">
-            Remember this device for 30 days
-          </Label>
         </div>
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>

@@ -85,7 +85,6 @@ export default function Signup() {
           state: {
             email: data?.email || values.email,
             purpose: data?.purpose || OTP_PURPOSE.SIGNUP,
-            rememberMe: false,
           },
         });
         return;

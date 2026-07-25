@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 
 import AuthShell from '@/components/AuthShell';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   InputOTP,
   InputOTPGroup,
@@ -17,9 +19,15 @@ import { OTP_LENGTH, OTP_PURPOSE, OTP_RESEND_COOLDOWN_SECONDS } from '@/config';
 
 /**
  * OTP verification screen, reached from Login (purpose LOGIN) or Signup
- * (purpose SIGNUP). The email/purpose/rememberMe context arrives via router
- * state — there's no way to land here meaningfully without it, so a direct
- * visit bounces back to /login.
+ * (purpose SIGNUP). Only email and purpose arrive via router state — there's no
+ * way to land here meaningfully without them, so a direct visit bounces back to
+ * /login.
+ *
+ * Remember-this-device is owned by THIS screen, for both purposes. It used to be
+ * a checkbox on Login that was ferried through router state, which put the choice
+ * on a page that cannot act on it: /api/auth/login never issues a trusted-device
+ * token, only /api/auth/otp/verify does. Asking here also puts it where it makes
+ * sense to the user — next to the code they just had to fetch from their inbox.
  *
  * Backend /api/auth/otp/verify outcomes:
  *   200 data:{accessToken}  signed in; on rememberMe the backend also sets the
@@ -40,9 +48,10 @@ export default function VerifyOtp() {
   const { login } = useAuth();
 
   const state = location.state || {};
-  const { email, purpose, rememberMe } = state;
+  const { email, purpose } = state;
 
   const [code, setCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(OTP_RESEND_COOLDOWN_SECONDS);
@@ -69,12 +78,7 @@ export default function VerifyOtp() {
       if (value.length !== OTP_LENGTH || submitting) return;
       setSubmitting(true);
       try {
-        const res = await verifyOtp({
-          email,
-          purpose,
-          code: value,
-          rememberMe: Boolean(rememberMe),
-        });
+        const res = await verifyOtp({ email, purpose, code: value, rememberMe });
 
         const data = unwrap(res);
 
@@ -97,11 +101,15 @@ export default function VerifyOtp() {
     [email, purpose, rememberMe, submitting, login, navigate]
   );
 
-  const handleChange = (value) => {
-    setCode(value);
-    if (value.length === OTP_LENGTH) {
-      submit(value);
-    }
+  /**
+   * Typing the last digit deliberately does NOT verify. A paste or a mistyped
+   * digit used to fire the request instantly, burning one of the 5 server-side
+   * attempts before the user could read what they had entered. Submission is
+   * explicit: Enter (the form submit) or the Verify button.
+   */
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    submit(code);
   };
 
   const handleResend = async () => {
@@ -144,11 +152,14 @@ export default function VerifyOtp() {
         </Link>
       }
     >
-      <div className="flex flex-col items-center space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col items-center space-y-6"
+      >
         <InputOTP
           maxLength={OTP_LENGTH}
           value={code}
-          onChange={handleChange}
+          onChange={setCode}
           disabled={submitting}
         >
           <InputOTPGroup>
@@ -158,11 +169,22 @@ export default function VerifyOtp() {
           </InputOTPGroup>
         </InputOTP>
 
+        <div className="flex w-full items-center gap-2">
+          <Checkbox
+            id="rememberMe"
+            checked={rememberMe}
+            onCheckedChange={(checked) => setRememberMe(checked === true)}
+            disabled={submitting}
+          />
+          <Label htmlFor="rememberMe" className="font-normal">
+            Remember this device for 30 days
+          </Label>
+        </div>
+
         <Button
-          type="button"
+          type="submit"
           className="w-full"
           disabled={code.length !== OTP_LENGTH || submitting}
-          onClick={() => submit(code)}
         >
           {submitting && <Loader2 className="animate-spin" />}
           Verify
@@ -179,7 +201,7 @@ export default function VerifyOtp() {
             {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
           </button>
         </p>
-      </div>
+      </form>
     </AuthShell>
   );
 }
