@@ -89,13 +89,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Clear the session. Calls the backend so it can expire BOTH httpOnly cookies
-   * — the refresh cookie and the trusted-device remember-me cookie, which
-   * logout now also clears, so signing out really does re-arm the OTP challenge
-   * on the next sign-in from this device. The response is 200 with the standard
-   * envelope (it was 204 before); nothing is read from it. In-memory state is
-   * cleared regardless of whether the call succeeds, so logout is never blocked
-   * by the network.
+   * Clear the session. Calls the backend so it can expire the httpOnly refresh
+   * cookie and invalidate any server-side session left over from an OAuth2
+   * login. The trusted-device remember-me cookie is intentionally kept — it is
+   * what lets the next sign-in from this device skip the OTP for its full TTL.
+   * The response is 200 with the standard envelope; nothing is read from it.
+   * In-memory state is cleared regardless of whether the call succeeds, so
+   * logout is never blocked by the network.
    */
   const logout = useCallback(async () => {
     try {

@@ -32,19 +32,25 @@ import api from '@/api/axios';
  *             429                                     still inside the 60s cooldown
  *
  *   logout  POST /api/auth/logout
- *             200                                     clears both cookies
+ *             200                                     clears the refresh cookie and any
+ *                                                     OAuth2 HTTP session; the
+ *                                                     trusted-device cookie survives
  *
  * `purpose` is now a backend enum (OtpPurpose), so only the exact strings
  * "SIGNUP" and "LOGIN" deserialize — anything else is a 400, not a silent
  * mismatch. Send OTP_PURPOSE from config, never a hand-written literal.
+ *
+ * `rememberMe` belongs to `verify` alone — it is asked on the OTP screen, for both
+ * purposes, and only that request can act on it. `login` no longer accepts it (the
+ * backend DTO dropped the field), so passing it anywhere else is a no-op.
  */
 
 export function signup({ email, password, name }) {
   return api.post('/api/auth/signup', { email, password, name });
 }
 
-export function login({ email, password, rememberMe }) {
-  return api.post('/api/auth/login', { email, password, rememberMe });
+export function login({ email, password }) {
+  return api.post('/api/auth/login', { email, password });
 }
 
 export function verifyOtp({ email, purpose, code, rememberMe }) {
