@@ -1,291 +1,189 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BadgeCheck, FileText, Loader2, LogOut, ShieldAlert } from 'lucide-react';
 
-import { useAuth } from '@/context/AuthContext';
-import { fetchCurrentUser } from '@/api/user';
-import { Button } from '@/components/ui/button';
+import TopNav from '@/components/mockui/TopNav';
+import Modal from '@/components/mockui/Modal';
+import { showToast } from '@/components/mockui/toast';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  listCVs,
+  deleteCV,
+  duplicateCV,
+  relativeTime,
+} from '@/mock/cvStore';
+import { unlockPremiumTemplate } from '@/mock/credits';
 
 /**
- * Dashboard — the authenticated shell.
+ * Dashboard — "Your CVs" grid from the mock template.
  *
- * Two sources of identity, deliberately kept distinct:
+ * DATA SOURCE: the mock cvStore (localStorage). The backend has no CV
+ * endpoints yet — every action below (list, duplicate, delete, unlock) maps
+ * 1:1 to a planned REST call documented in src/mock/cvStore.js. When the
+ * server side lands, only the mock imports change, not this page.
  *
- *  - The JWT claims from AuthContext (sub, iss, id, provider, name, email,
- *    imageUrl, authorities). Available instantly, but a snapshot from the
- *    moment the token was issued.
- *  - GET /api/users/me (UserResponseDto), fetched here. This is server truth
- *    and carries what the token does not: the email-verified flag, every linked
- *    OAuth identity, and the account creation date. It is fetched once on mount
- *    and only ever supplements the claims — if the request fails, the page
- *    still renders from the token rather than blocking or blanking.
- *
- * The "Your CVs" section is an HONEST empty state: the backend has no
- * CV/resume entity, controller, or storage endpoint of any kind, so there is
- * nothing to create, list, or export yet. The control is disabled rather than
- * mocked — no placeholder data pretends the feature exists.
+ * Auth identity (avatar initials in the nav) still comes from the REAL JWT
+ * claims via useAuth — only the CV data is mocked.
  */
 
-function initials(name) {
-  if (!name) return 'U';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || '')
-    .join('') || 'U';
-}
+const STATUS_BADGE = {
+  draft: { label: 'Draft', cls: 'badge-draft' },
+  exported: { label: 'Exported', cls: 'badge-exported' },
+  locked: { label: 'Locked', cls: 'badge-locked' },
+};
 
-/** `createdAt` arrives as an ISO-8601 local date-time string. */
-function formatDate(value) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-export default function Dashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const [profile, setProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchCurrentUser()
-      .then((data) => {
-        if (!cancelled) setProfile(data);
-      })
-      .catch(() => {
-        // Non-fatal: the token claims below still render the page. A 401 here is
-        // already handled globally by the axios refresh interceptor.
-      })
-      .finally(() => {
-        if (!cancelled) setProfileLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
-  };
-
-  const name = profile?.name || user?.name || 'User';
-  const email = profile?.email || user?.email || '';
-  const providers = profile?.providers ?? [];
-
+/** Skeleton document thumbnail, as in the mock template. */
+function CvThumb() {
   return (
-    <div className="min-h-screen bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <span className="text-lg font-semibold tracking-tight">CVgen</span>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-auto gap-2 px-2 py-1.5">
-                <Avatar className="h-8 w-8">
-                  {user?.imageUrl && (
-                    <AvatarImage src={user.imageUrl} alt="" />
-                  )}
-                  <AvatarFallback>{initials(name)}</AvatarFallback>
-                </Avatar>
-                <span className="hidden text-sm font-medium sm:inline">
-                  {name}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="flex flex-col">
-                <span className="text-sm font-medium">{name}</span>
-                {email && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {email}
-                  </span>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={handleLogout}>
-                <LogOut />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome{name !== 'User' ? `, ${name.split(' ')[0]}` : ''}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Signed in to CVgen.
-          </p>
-        </div>
-
-        {/* Honest CV empty state — the backend has no CV feature yet. */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Your CVs</CardTitle>
-            <CardDescription>
-              Create, manage, and export your resumes here.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <FileText className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium">No CVs yet</p>
-                <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                  CV creation isn&apos;t available yet — the backend doesn&apos;t
-                  expose any resume feature at this time. This section will light
-                  up once it does.
-                </p>
-              </div>
-              <Button disabled>Create CV (coming soon)</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Server-side profile — GET /api/users/me. */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Profile</CardTitle>
-            <CardDescription>
-              Read from your account on the server.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {profileLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading your profile…
-              </div>
-            )}
-
-            {!profileLoading && !profile && (
-              <p className="text-sm text-muted-foreground">
-                Your profile couldn&apos;t be loaded right now. The account
-                details below still come from your signed session token.
-              </p>
-            )}
-
-            {!profileLoading && profile && (
-              <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
-                <Detail label="Name" value={profile.name} />
-                <Detail label="Email" value={profile.email} />
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Email status
-                  </dt>
-                  <dd className="mt-1 flex items-center gap-1.5 text-sm">
-                    {profile.isEmailVerified ? (
-                      <>
-                        <BadgeCheck className="h-4 w-4 text-primary" />
-                        Verified
-                      </>
-                    ) : (
-                      <>
-                        <ShieldAlert className="h-4 w-4 text-destructive" />
-                        Not verified
-                      </>
-                    )}
-                  </dd>
-                </div>
-                <Detail
-                  label="Member since"
-                  value={formatDate(profile.createdAt)}
-                />
-                <Detail
-                  label="Linked sign-in methods"
-                  value={
-                    providers.length > 0
-                      ? providers.join(', ')
-                      : 'Email and password only'
-                  }
-                  className="capitalize"
-                />
-                <Detail label="User ID" value={profile.userId} mono />
-              </dl>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Session details — verified JWT claims only. */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Session</CardTitle>
-            <CardDescription>
-              Read from your signed session token.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
-              <Detail
-                label="Signed in with"
-                value={user?.provider}
-                className="capitalize"
-              />
-              <Detail
-                label="Authorities"
-                value={user?.authorities?.join(', ')}
-              />
-              <Detail label="Issued by" value={user?.iss} />
-              <Detail label="Subject" value={user?.sub} mono />
-            </dl>
-            <Separator className="my-4" />
-            <Detail label="User ID (claim)" value={user?.id} mono />
-          </CardContent>
-        </Card>
-      </main>
+    <div className="cv-thumb">
+      <div className="cv-thumb-inner">
+        <div style={{ height: '6px', background: 'var(--fg)', borderRadius: '1px', width: '55%', marginBottom: '5px' }} />
+        <div style={{ height: '3px', background: 'var(--border)', borderRadius: '1px', width: '90%', marginBottom: '3px' }} />
+        <div style={{ height: '3px', background: 'var(--border)', borderRadius: '1px', width: '75%', marginBottom: '8px' }} />
+        <div style={{ height: '3px', background: 'var(--border)', borderRadius: '1px', width: '40%', marginBottom: '3px' }} />
+        <div style={{ height: '3px', background: 'var(--border)', borderRadius: '1px', width: '85%' }} />
+      </div>
     </div>
   );
 }
 
-function Detail({ label, value, mono = false, className = '' }) {
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [cvs, setCVs] = useState(listCVs);
+  const [unlockTarget, setUnlockTarget] = useState(null);
+
+  const refresh = () => setCVs(listCVs());
+
+  const handleDelete = (cv) => {
+    deleteCV(cv.id);
+    showToast(`"${cv.title}" deleted`);
+    refresh();
+  };
+
+  const handleDuplicate = (cv) => {
+    duplicateCV(cv.id);
+    showToast('CV duplicated');
+    refresh();
+  };
+
+  const handleUnlock = () => {
+    // MOCK: redeems 1 credit from the localStorage wallet.
+    const ok = unlockPremiumTemplate();
+    if (ok) {
+      showToast('Template unlocked successfully');
+      setUnlockTarget(null);
+    } else {
+      showToast('Not enough credits — purchase a pack first');
+    }
+  };
+
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={`mt-1 break-all text-sm ${mono ? 'font-mono' : ''} ${className}`}
+    <>
+      <TopNav />
+      <div className="container">
+        <div className="page-header flex justify-between items-center">
+          <div>
+            <h1>Your CVs</h1>
+            <p className="text-muted text-sm mt-1">
+              Manage, analyze, and export your resumes
+            </p>
+          </div>
+          <button className="btn btn-primary" onClick={() => navigate('/builder')}>
+            + New CV
+          </button>
+        </div>
+
+        <div className="cv-grid" style={{ marginBottom: '4rem' }}>
+          {cvs.map((cv) => {
+            const badge = STATUS_BADGE[cv.status] || STATUS_BADGE.draft;
+            return (
+              <div className="cv-card" key={cv.id}>
+                <CvThumb />
+                <div className="cv-card-body">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="cv-card-title">{cv.title}</div>
+                      <div className="cv-card-meta">
+                        Modified {relativeTime(cv.updatedAt)} · {cv.template}
+                      </div>
+                    </div>
+                    <span className={`status-badge ${badge.cls}`}>{badge.label}</span>
+                  </div>
+                  <div className="cv-card-actions">
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => navigate(`/builder/${cv.id}`)}
+                    >
+                      Edit
+                    </button>
+                    {cv.status === 'locked' ? (
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => setUnlockTarget(cv)}
+                      >
+                        Unlock
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => handleDuplicate(cv)}
+                      >
+                        Duplicate
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-sm btn-destructive"
+                      onClick={() => handleDelete(cv)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div
+            className="cv-card"
+            style={{ borderStyle: 'dashed', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '268px', cursor: 'pointer' }}
+            onClick={() => navigate('/builder')}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.875rem', color: 'var(--fg-subtle)', fontSize: '1.25rem', fontWeight: 300 }}>
+              +
+            </div>
+            <div className="font-medium text-sm">Create New CV</div>
+            <div className="text-muted text-xs mt-1">Start from a template</div>
+          </div>
+        </div>
+      </div>
+
+      <Modal
+        open={Boolean(unlockTarget)}
+        onClose={() => setUnlockTarget(null)}
+        title="Unlock Premium Template"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setUnlockTarget(null)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleUnlock}>
+              Redeem 1 Credit
+            </button>
+          </>
+        }
       >
-        {value || '—'}
-      </dd>
-    </div>
+        <p className="text-muted mb-4">
+          This CV uses a premium template. Redeem 1 credit to unlock unlimited
+          exports and edits.
+        </p>
+        <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+          <div>
+            <div className="font-medium text-sm">
+              {unlockTarget?.template} Template
+            </div>
+            <div className="text-xs text-muted">Clean, two-column layout</div>
+          </div>
+          <div className="font-bold text-sm">1 credit</div>
+        </div>
+      </Modal>
+    </>
   );
 }
