@@ -3,15 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import AuthShell from '@/components/AuthShell';
 import OAuthButtons from '@/components/OAuthButtons';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { login as loginRequest } from '@/api/auth';
 import {
@@ -29,22 +23,15 @@ const schema = z.object({
 });
 
 /**
- * Login page — local email/password sign-in with the OTP-required and
- * trusted-device branches, plus the OAuth providers.
- *
- * Backend /api/auth/login outcomes, keyed on the HTTP status (the old
- * `data.status` outcome strings are gone — `status` is now a boolean):
- *   200 data:{accessToken}      trusted device, sign in directly
- *   202 data:{email, purpose}   OTP challenge, go to the OTP screen
- *   401                         invalid credentials, inline on the password field
- *   400 error:[...]             validation failure, mapped onto the fields
- *
- * Failure wording comes from the response `message`, which the backend already
- * localizes; the literals here are network-level fallbacks only.
- *
- * Remember-this-device is NOT asked here. Only the OTP verification issues the
- * trusted-device token, so the choice is made on that screen — which also means
- * the 200 branch below (already-trusted device) never needs to ask at all.
+ * Login page — mock template's split-panel auth design (.auth-page), with the
+ * REAL backend sign-in logic preserved unchanged:
+ *   200 data:{accessToken}    trusted device, sign in directly
+ *   202 data:{email, purpose} OTP challenge, go to the OTP screen
+ *   401                       invalid credentials, inline on the password field
+ *   400 error:[...]           validation failure, mapped onto the fields
+ * OAuth buttons kick off the real backend /oauth2/authorization/{provider}
+ * redirect chain (config.js) — the provider list in OAuthButtons stays driven
+ * by OAUTH_PROVIDERS in config.js as the source of truth.
  */
 export default function Login() {
   const navigate = useNavigate();
@@ -87,14 +74,12 @@ export default function Login() {
           replace: true,
           state: {
             email: data?.email || values.email,
-            // Echo the purpose the backend chose rather than assuming LOGIN.
             purpose: data?.purpose || OTP_PURPOSE.LOGIN,
           },
         });
         return;
       }
 
-      // Any other 2xx shape is unexpected given the verified contract.
       toast.error('Unexpected response from server. Please try again.');
     } catch (err) {
       const status = apiStatus(err);
@@ -119,72 +104,108 @@ export default function Login() {
   };
 
   return (
-    <AuthShell
-      title="Sign in"
-      description="Welcome back to CVgen"
-      footer={
-        <>
-          Don&apos;t have an account?{' '}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
-            Sign up
-          </Link>
-        </>
-      }
-    >
-      {oauthError && (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {oauthError === 'exchange_failed'
-            ? 'Sign-in failed. Please try again.'
-            : decodeURIComponent(oauthError)}
+    <div className="auth-page">
+      <div className="auth-visual">
+        <div className="auth-visual-content">
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.02em' }}>
+            CVGen
+          </div>
+          <h2>
+            Your CV should get you the interview.
+            <br />
+            Not rejected by a parser.
+          </h2>
+          <p>
+            Most CVs are silently dropped before a human ever reads them. CVGen
+            helps you build machine-readable, keyword-smart resumes with
+            transparent analysis — so you know exactly where you stand.
+          </p>
+
+          <div style={{ marginTop: '3rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {[
+              ['📄', 'Pixel-perfect PDF export', 'Same HTML for preview and export'],
+              ['🎯', 'CV Match Analysis', 'Keyword coverage, not gamified scores'],
+              ['💳', 'Local payments', 'eSewa, Khalti, ConnectIPS'],
+            ].map(([icon, title, desc]) => (
+              <div key={title} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
+                  {icon}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{title}</div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            {...register('email')}
-          />
-          {errors.email && (
-            <p className="text-sm text-destructive">{errors.email.message}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            {...register('password')}
-          />
-          {errors.password && (
-            <p className="text-sm text-destructive">{errors.password.message}</p>
-          )}
-        </div>
-
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="animate-spin" />}
-          Sign in
-        </Button>
-      </form>
-
-      <div className="relative">
-        <Separator />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs uppercase text-muted-foreground">
-          or
-        </span>
+        <div className="auth-visual-footer">© 2026 CVGen · Texas International College</div>
       </div>
 
-      <OAuthButtons disabled={isSubmitting} />
-    </AuthShell>
+      <div className="auth-form-panel">
+        <Link to="/" className="auth-logo">
+          CVGen
+        </Link>
+        <h1>Welcome back</h1>
+        <p className="auth-sub">Sign in to build, analyze, and export your CVs.</p>
+
+        {oauthError && (
+          <div
+            role="alert"
+            className="p-3 rounded-md mb-4 text-sm"
+            style={{ background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid #fecaca' }}
+          >
+            {oauthError === 'exchange_failed'
+              ? 'Sign-in failed. Please try again.'
+              : decodeURIComponent(oauthError)}
+          </div>
+        )}
+
+        <OAuthButtons disabled={isSubmitting} />
+
+        <div className="auth-divider">or</div>
+
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="form-group">
+            <label className="label" htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              autoComplete="email"
+              placeholder="you@example.com"
+              {...register('email')}
+            />
+            {errors.email && (
+              <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.email.message}</p>
+            )}
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              className="input"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              {...register('password')}
+            />
+            {errors.password && (
+              <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.password.message}</p>
+            )}
+          </div>
+          <button type="submit" className="btn btn-primary w-full" style={{ marginTop: '0.5rem' }} disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in…' : 'Sign In with Email'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Don&apos;t have an account?{' '}
+          <Link to="/signup" style={{ color: 'var(--fg)', fontWeight: 500 }}>
+            Sign up
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
