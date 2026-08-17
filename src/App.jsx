@@ -3,12 +3,15 @@ import { Loader2 } from 'lucide-react';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Signup from '@/pages/Signup';
 import VerifyOtp from '@/pages/VerifyOtp';
 import AuthSuccess from '@/pages/AuthSuccess';
 import AuthFailure from '@/pages/AuthFailure';
 import Dashboard from '@/pages/Dashboard';
+import Builder from '@/pages/Builder';
+import Scoring from '@/pages/Scoring';
 
 /**
  * BootstrapSplash — shown while the one-shot /api/auth/refresh on app load is
@@ -41,18 +44,19 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-/** CatchAllRoute — sends authenticated users to /dashboard, others to /login. */
+/** CatchAllRoute — sends unknown routes to the public landing page. */
 function CatchAllRoute() {
-  const { isAuthenticated, bootstrapped } = useAuth();
+  const { bootstrapped } = useAuth();
   if (!bootstrapped) {
     return <BootstrapSplash />;
   }
-  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+  return <Navigate to="/" replace />;
 }
 
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -63,6 +67,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/builder"
+        element={
+          <ProtectedRoute>
+            <Builder />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/builder/:id"
+        element={
+          <ProtectedRoute>
+            <Builder />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scoring"
+        element={
+          <ProtectedRoute>
+            <Scoring />
           </ProtectedRoute>
         }
       />
