@@ -1,34 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 
 import CreditsModal from '@/components/mockui/CreditsModal';
-import { useAuth } from '@/context/AuthContext';
+import UserMenu from '@/components/mockui/UserMenu';
 import { getBalance } from '@/mock/credits';
-
-function initials(name) {
-  if (!name) return 'U';
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() || '')
-      .join('') || 'U'
-  );
-}
 
 /**
  * TopNav — shared app navigation from the mock design (logo, page links,
- * credits pill, avatar).
+ * credits pill, account menu).
  *
  * The credits pill opens the purchase modal; the balance comes from the mock
  * wallet and live-updates via the `cvgen:credits-changed` event the mock
- * service dispatches. The avatar shows the signed-in user's initials from the
- * real auth token claims and clicking it signs out.
+ * service dispatches. The avatar opens UserMenu, which owns everything
+ * account-shaped (profile, sign out) — it used to sign the user out on a single
+ * click, with no menu and no confirmation.
  */
 export default function TopNav() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [balance, setBalance] = useState(getBalance);
 
@@ -37,11 +24,6 @@ export default function TopNav() {
     window.addEventListener('cvgen:credits-changed', sync);
     return () => window.removeEventListener('cvgen:credits-changed', sync);
   }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
 
   return (
     <>
@@ -70,14 +52,7 @@ export default function TopNav() {
               </svg>
               {balance} credits
             </div>
-            <div
-              className="avatar"
-              title={`${user?.name || 'Account'} — click to sign out`}
-              style={{ cursor: 'pointer' }}
-              onClick={handleLogout}
-            >
-              {initials(user?.name)}
-            </div>
+            <UserMenu onOpenCredits={() => setCreditsOpen(true)} />
           </div>
         </div>
       </nav>
