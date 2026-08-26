@@ -8,6 +8,24 @@
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
+/**
+ * Absolute URL for a file the backend served us a link to.
+ *
+ * The backend's FileUrlResolver only emits an absolute URL when
+ * STORAGE_PUBLIC_BASE_URL is configured; with it unset — the default, and the
+ * case in local development — it returns a SAME-ORIGIN path like
+ * `/api/files/avatars/<id>`. The frontend is served from another origin (:3000
+ * against the API on :8080), so dropping that path straight into <img src>
+ * resolves it against the page origin and 404s, leaving the user on initials
+ * with nothing in the console to explain it. Prefixing here keeps both
+ * configurations working: an already-absolute URL is returned untouched.
+ */
+export function toFileUrl(url) {
+  if (!url) return null;
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:')) return url;
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 /** Supported OAuth2 providers — must match backend client registrations. */
 export const OAUTH_PROVIDERS = ['google', 'github', 'linkedin'];
 
