@@ -4,6 +4,7 @@ import { Link, NavLink } from 'react-router-dom';
 import CreditsModal from '@/components/mockui/CreditsModal';
 import UserMenu from '@/components/mockui/UserMenu';
 import { getBalance } from '@/mock/credits';
+import { ensureAvatarLoaded } from '@/auth/avatarStore';
 
 /**
  * TopNav — shared app navigation from the mock design (logo, page links,
@@ -14,10 +15,21 @@ import { getBalance } from '@/mock/credits';
  * service dispatches. The avatar opens UserMenu, which owns everything
  * account-shaped (profile, sign out) — it used to sign the user out on a single
  * click, with no menu and no confirmation.
+ *
+ * This is also where the profile picture is first read from the server, since
+ * the nav is on every authenticated page. The retry matters: after a first-time
+ * OAuth signup the backend seeds the provider picture ASYNCHRONOUSLY, so
+ * `profilePictureUrl` is legitimately null for a moment after landing here. The
+ * user sees initials and the picture fills itself in — the redirect is never
+ * blocked waiting for it.
  */
 export default function TopNav() {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [balance, setBalance] = useState(getBalance);
+
+  useEffect(() => {
+    ensureAvatarLoaded({ retryDelayMs: 4000 });
+  }, []);
 
   useEffect(() => {
     const sync = () => setBalance(getBalance());
