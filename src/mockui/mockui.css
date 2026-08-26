@@ -543,3 +543,41 @@ body {
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 .section-desc { font-size: 0.8125rem; color: var(--fg-subtle); margin-top: 0.125rem; }
+
+/* Profile picture picker ------------------------------------------------- */
+.picture-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0.75rem; }
+.picture-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 0.875rem 0.5rem; background: #fff; border: 1px solid var(--mk-border);
+  border-radius: var(--radius-md); cursor: pointer; font: inherit; color: var(--fg);
+  transition: var(--transition);
+}
+.picture-tile:hover:not(:disabled) { border-color: var(--border-strong); }
+.picture-tile:focus-visible { outline: 2px solid var(--mk-primary); outline-offset: 2px; }
+.picture-tile:disabled { opacity: 0.5; cursor: not-allowed; }
+/* The tile doing the work stays legible; only the other tiles dim out. */
+.picture-tile[aria-busy='true']:disabled { opacity: 1; }
+.picture-tile.selected { border-color: var(--mk-primary); box-shadow: 0 0 0 1px var(--mk-primary); }
+.picture-tile-thumb {
+  position: relative; width: 56px; height: 56px; border-radius: 50%; overflow: hidden;
+  background: var(--mk-accent); color: var(--fg-subtle);
+  display: flex; align-items: center; justify-content: center;
+}
+.picture-tile-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.picture-tile-label { font-size: 0.75rem; font-weight: 500; text-align: center; }
+.picture-tile-badge {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  background: var(--mk-primary); color: #fff; font-size: 0.625rem; font-weight: 700;
+  padding: 0.125rem 0.5rem; border-radius: var(--radius-pill);
+  text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+}
+/* The oversized ring is the scrim: the round thumb clips it to a disc. */
+.picture-spinner {
+  position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--mk-border); border-top-color: var(--mk-primary);
+  box-shadow: 0 0 0 999px rgba(255, 255, 255, 0.72);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.picture-remove { margin-right: auto; color: var(--danger); }
+.picture-remove:hover:not(:disabled) { background: var(--danger-bg); }
