@@ -1,158 +1,122 @@
+import { getAccessToken, AUTH_CHANGED_EVENT } from '@/auth/tokenStore';
+import { fetchCurrentUser } from '@/api/user';
+import { toFileUrl } from '@/config';
+
 /**
- * Profile-picture store — INTERIM, browser-local.
+ * Profile-picture store — the one place the app decides which avatar to draw.
  *
- * The backend has no avatar field yet: `GET /api/users/me` returns
- * `{ userId, email, name, createdAt, isEmailVerified, providers }` and the JWT
- * carries no picture claim either. Uploads therefore stay on this device until
- * the R2 bucket exists; at that point `resolveAvatar()` is the single seam to
- * change — swap the localStorage lookup for the server URL and every caller
- * (TopNav, ProfileModal) follows.
+ * The picture now lives on the backend: `GET /api/users/me` returns
+ * `profilePictureUrl` (null when the user has none) and every mutation answers
+ * with the new URL. This module caches that URL in memory and dispatches
+ * `cvgen:avatar-changed` on every mutation, so the nav avatar, the profile
+ * modal and the picker all re-read without prop drilling — same pattern as the
+ * mock credits wallet. (The previous localStorage/data-URL implementation is
+ * gone: uploads are real and follow the user across devices now.)
  *
- * What is stored is a data URL, not a path: a browser cannot re-read a
- * `<input type=file>` path later, and a blob: URL dies with the tab. To keep
- * that affordable the image is center-cropped and re-encoded to a 256px JPEG
- * before it is written (~15-40 kB), well under the ~5 MB localStorage quota
- * that a raw phone photo would blow on its own.
+ * Why cache at all, when the URL is also a JWT claim? Because the claim is a
+ * snapshot from token-issue time. It survives refresh-token rotation now, so it
+ * is a good *placeholder* while /api/users/me is in flight, but it goes stale
+ * the moment the user changes or removes their picture. Server truth wins as
+ * soon as it lands, which is what `loaded` tracks — `loaded: true, url: null`
+ * means "we know there is no picture", and must NOT fall back to the claim.
  *
- * Keying is per user (sub / userId / email) so two accounts on one browser do
- * not inherit each other's picture. Mutations dispatch `cvgen:avatar-changed`
- * so open components re-read without prop drilling — same pattern as the mock
- * credits wallet.
+ * URLs are immutable and public: a new picture means a new fileId and a new
+ * URL. So they can be cached freely and rendered in a plain <img src> — never
+ * with an Authorization header (see Avatar) and never with a cache-buster.
  */
 
-const PREFIX = 'cvgen:avatar:';
 export const AVATAR_CHANGED_EVENT = 'cvgen:avatar-changed';
 
-/** Longest edge of the stored image, in px. */
-const MAX_EDGE = 256;
-/** Reject before decoding — a file this big is a mistake, not an avatar. */
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-
-/**
- * Stable per-user storage key. JWT claims and the users/me DTO disagree on the
- * id field name, so accept whichever is present.
- */
-function keyFor(user) {
-  const id = user?.sub || user?.userId || user?.email;
-  return id ? `${PREFIX}${id}` : null;
-}
+/** `loaded` distinguishes "not fetched yet" from "fetched, and there is none". */
+let cache = { url: null, loaded: false };
 
 function notify() {
   window.dispatchEvent(new Event(AVATAR_CHANGED_EVENT));
 }
 
-/** The locally uploaded picture for this user, or null. */
-export function getLocalAvatar(user) {
-  const key = keyFor(user);
-  if (!key) return null;
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    // Private-mode / disabled storage — treat as "no picture", never throw.
-    return null;
-  }
+/** Server truth, once fetched: the URL, or null when the user has no picture. */
+export function getAvatarUrl() {
+  return cache.loaded ? cache.url : null;
 }
 
-export function setLocalAvatar(user, dataUrl) {
-  const key = keyFor(user);
-  if (!key) return false;
-  try {
-    localStorage.setItem(key, dataUrl);
-    notify();
-    return true;
-  } catch {
-    return false;
-  }
+/** Record the URL a profile fetch or a mutation returned. */
+export function setAvatarUrl(url) {
+  // Server truth can be a same-origin path rather than an absolute URL when
+  // STORAGE_PUBLIC_BASE_URL is unset — see toFileUrl. Normalize once, here, so
+  // no renderer has to know about it.
+  cache = { url: toFileUrl(url), loaded: true };
+  notify();
 }
 
-export function clearLocalAvatar(user) {
-  const key = keyFor(user);
-  if (!key) return;
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // Nothing to clean up.
-  }
+/** Forget server truth — used on sign-out so the next account starts clean. */
+export function resetAvatar() {
+  cache = { url: null, loaded: false };
   notify();
 }
 
 /**
- * The picture to actually render.
+ * The picture to actually render for `user` (the decoded JWT claims).
  *
- * Precedence: an explicit local upload beats the identity provider's image,
- * because the upload is a deliberate choice the user made after signing in.
- * The OAuth branch is speculative — Google/GitHub/LinkedIn all publish an
- * avatar URL, but our backend does not forward it into the JWT or the profile
- * DTO yet, so every alias it might arrive under is checked and the whole thing
- * simply yields null until one exists.
+ * Precedence: server truth if we have it, otherwise the token's own image claim
+ * as a placeholder, otherwise nothing and the caller draws initials.
  */
 export function resolveAvatar(user) {
-  return (
-    getLocalAvatar(user) ||
-    user?.picture ||
-    user?.avatarUrl ||
-    user?.imageUrl ||
-    user?.pictureUrl ||
-    null
-  );
+  if (cache.loaded) return cache.url;
+  return toFileUrl(user?.imageUrl || user?.picture || null);
 }
 
 /**
- * Read a picked file into a square, downscaled data URL.
+ * Pull the current picture from server truth.
  *
- * Center-crops to a square first so portrait/landscape photos are not squashed
- * by the circular frame, then re-encodes as JPEG — the alpha channel is
- * pointless behind a circle mask and PNG would triple the stored size. A
- * transparent source is flattened onto white rather than onto black.
+ * Used on app load and after OAuth sign-in. Seeding a provider picture at
+ * first-time signup is ASYNCHRONOUS on the backend, so `profilePictureUrl` can
+ * legitimately still be null for a few seconds after a first Google/GitHub/
+ * LinkedIn login — `retryDelayMs` schedules one more read for that case rather
+ * than leaving the user on initials until their next navigation. Nothing waits
+ * on this: it never throws, and a failure just leaves the placeholder in place.
  *
- * @param {File} file
- * @returns {Promise<string>} data URL
+ * @param {{ retryDelayMs?: number }} [options]
+ * @returns {Promise<string|null>} the URL now known, or null
  */
-export function fileToAvatarDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      reject(new Error('No file selected.'));
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('That file is not an image.'));
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      reject(new Error('Image is too large — pick one under 8 MB.'));
-      return;
-    }
+export async function syncAvatarFromServer({ retryDelayMs = 0 } = {}) {
+  if (!getAccessToken()) return null;
 
-    const url = URL.createObjectURL(file);
-    const img = new Image();
+  let url = null;
+  try {
+    url = (await fetchCurrentUser())?.profilePictureUrl ?? null;
+    setAvatarUrl(url);
+  } catch {
+    // Offline, expired session, anything — keep whatever we were already
+    // showing. The avatar is never worth surfacing an error for.
+    return getAvatarUrl();
+  }
 
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      try {
-        const edge = Math.min(img.naturalWidth, img.naturalHeight);
-        const sx = (img.naturalWidth - edge) / 2;
-        const sy = (img.naturalHeight - edge) / 2;
-        const size = Math.min(edge, MAX_EDGE);
+  if (!url && retryDelayMs > 0) {
+    setTimeout(() => {
+      syncAvatarFromServer();
+    }, retryDelayMs);
+  }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-        ctx.drawImage(img, sx, sy, edge, edge, 0, 0, size, size);
-
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      } catch {
-        reject(new Error('Could not process that image.'));
-      }
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Could not read that image.'));
-    };
-
-    img.src = url;
-  });
+  return url;
 }
+
+/**
+ * Fetch server truth once per session, and no more.
+ *
+ * Called from the nav on every authenticated page, which remounts on each
+ * navigation — without this guard that would be a /api/users/me request per
+ * page view for a value that only ever changes through this module. Changes
+ * made in the picker land via setAvatarUrl(), not through here.
+ */
+export function ensureAvatarLoaded(options) {
+  if (cache.loaded) return Promise.resolve(cache.url);
+  return syncAvatarFromServer(options);
+}
+
+// Sign-out clears the in-memory access token; drop the cached picture with it
+// so the next account on this browser never inherits the previous one's avatar.
+// A token *rotation* keeps the cache deliberately — the rotated token's claim
+// would be stale after a change, and server truth already sits here.
+window.addEventListener(AUTH_CHANGED_EVENT, () => {
+  if (!getAccessToken() && cache.loaded) resetAvatar();
+});
