@@ -1,144 +1,86 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  AlertCircle,
+  BarChart3,
+  Bold,
+  Briefcase,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Code,
+  Download,
+  FileText,
+  GraduationCap,
+  Italic,
+  Link2,
+  List,
+  Loader2,
+  Plus,
+  Sparkles,
+  Upload,
+  User,
+  Wrench,
+  X,
+} from 'lucide-react';
 
 import TopNav from '@/components/mockui/TopNav';
 import Modal from '@/components/mockui/Modal';
 import { showToast } from '@/components/mockui/toast';
-import { createCV, getCV, updateCV, cvToPlainText } from '@/mock/cvStore';
+import {
+  CV_STATUS,
+  createCv,
+  fetchTemplates,
+  getCv,
+  replaceCvContent,
+  updateCvMeta,
+} from '@/api/cv';
+import { apiMessage, apiStatus, unwrap, HTTP } from '@/api/response';
+import { cvToPlainText, formatMonth, newId, toContent, toEditorModel } from '@/cv/content';
+import { templateComponent, templateName } from '@/templates/registry';
 
 /**
- * Builder — the CV editor from the mock template, converted to React with
- * REAL client-side state: every field is controlled, edits update the live
- * preview instantly, and changes autosave (debounced) to the mock cvStore.
+ * Builder — the CV editor. Every field is controlled, edits redraw the live
+ * preview instantly, and changes autosave to the backend:
  *
- * Mocked backend features (documented in src/mock/*.js):
- *   - CV persistence          -> localStorage via cvStore  (PUT /api/cvs/{id})
- *   - Import PDF/DOCX parse   -> simulated pipeline        (POST /api/import)
- *   - GitHub repo import      -> toast only                (GET /api/import/github)
- *   - PDF export job          -> simulated job + download  (POST /api/cvs/{id}/export)
- *   - AI enhance (✨)          -> toast only                (POST /api/ai/enhance)
+ *   content (all sections)   -> PUT   /api/cvs/{id}        debounced
+ *   title                    -> PATCH /api/cvs/{id}/meta   debounced
+ *   template / status        -> PATCH /api/cvs/{id}/meta   immediately
  *
- * The ATS View and Raw view are NOT canned markup — both are derived from the
- * live CV state, so they change as the user types.
+ * `/builder` with no id creates a CV (POST /api/cvs) and replaces the URL with
+ * `/builder/{id}`, so a refresh edits that CV instead of making another.
+ *
+ * The preview is drawn by the component registered for the CV's templateKey
+ * (src/templates/registry.js); the picker lists what GET /api/templates returns.
+ *
+ * Still mocked here (no backend yet): Import PDF/DOCX parsing, GitHub import,
+ * PDF export (downloads the plain text instead) and AI enhance.
+ *
+ * The ATS View and Raw view are derived from the live CV state, so they change
+ * as the user types.
  */
 
-const uid = () => `item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-
-function formatMonth(value) {
-  if (!value) return '';
-  const [y, m] = value.split('-');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[Number(m) - 1] || m} ${y}`;
-}
+const AUTOSAVE_DELAY_MS = 800;
 
 /* ---------- Section wrapper (collapsible card) ---------- */
 function Section({ num, title, status, complete, open, onToggle, children }) {
   return (
     <div className="section-card">
-      <div className="section-header" onClick={onToggle}>
-        <div className="section-header-left">
+      <button type="button" className="section-header" onClick={onToggle} aria-expanded={open}>
+        <span className="section-header-left">
           <span className="section-num">{num}</span>
           <span className="section-header-title">{title}</span>
-        </div>
-        <div className="flex items-center gap-3">
+        </span>
+        <span className="flex items-center gap-3">
           <span className="section-status">
-            <span className={`status-dot${complete ? '' : ' empty'}`} />
+            <span className={`status-dot${complete ? '' : ' empty'}`} aria-hidden="true" />
             {status}
           </span>
-          <svg className={`chevron${open ? ' rotated' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
+          <ChevronDown className={`chevron${open ? ' rotated' : ''}`} aria-hidden="true" />
+        </span>
+      </button>
       <div className={`section-body${open ? '' : ' collapsed'}`}>{children}</div>
-    </div>
-  );
-}
-
-/* ---------- Live preview document ---------- */
-function PreviewDoc({ cv }) {
-  const p = cv.personal;
-  return (
-    <div className="doc-frame">
-      <div className="doc-header">
-        <div className="doc-name">{p.fullName || 'Your Name'}</div>
-        <div className="doc-role">{p.title || 'Professional Title'}</div>
-        <div className="doc-contact">
-          {[p.email, p.phone, p.location, p.linkedin, p.website]
-            .filter(Boolean)
-            .map((c, i, arr) => (
-              <span key={i}>
-                {c}
-                {i < arr.length - 1 ? ' • ' : ''}
-              </span>
-            ))}
-        </div>
-      </div>
-      {cv.summary && (
-        <div className="doc-section">
-          <div className="doc-section-title">Professional Summary</div>
-          <div className="doc-entry-desc">{cv.summary}</div>
-        </div>
-      )}
-      {cv.experience.length > 0 && (
-        <div className="doc-section">
-          <div className="doc-section-title">Experience</div>
-          {cv.experience.map((e) => (
-            <div className="doc-entry" key={e.id}>
-              <div className="doc-entry-header">
-                <span className="doc-entry-title">
-                  {e.role || 'Role'} — {e.company || 'Company'}
-                </span>
-                <span className="doc-entry-date">
-                  {formatMonth(e.start)} – {e.current ? 'Present' : formatMonth(e.end)}
-                </span>
-              </div>
-              <div className="doc-entry-desc">{e.description}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {cv.education.length > 0 && (
-        <div className="doc-section">
-          <div className="doc-section-title">Education</div>
-          {cv.education.map((e) => (
-            <div className="doc-entry" key={e.id}>
-              <div className="doc-entry-header">
-                <span className="doc-entry-title">
-                  {e.degree || 'Degree'} — {e.institution || 'Institution'}
-                </span>
-                <span className="doc-entry-date">
-                  {e.startYear} – {e.endYear}
-                </span>
-              </div>
-              <div className="doc-entry-desc">{e.achievements}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {cv.skills.technical.length > 0 && (
-        <div className="doc-section">
-          <div className="doc-section-title">Skills</div>
-          <div className="doc-skills">
-            {cv.skills.technical.map((s, i) => (
-              <span className="doc-skill" key={i}>{s}</span>
-            ))}
-          </div>
-        </div>
-      )}
-      {cv.projects.length > 0 && (
-        <div className="doc-section">
-          <div className="doc-section-title">Projects</div>
-          {cv.projects.map((pr) => (
-            <div className="doc-entry" key={pr.id}>
-              <div className="doc-entry-header">
-                <span className="doc-entry-title">{pr.name || 'Project'}</span>
-              </div>
-              <div className="doc-entry-desc">{pr.description}</div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -206,22 +148,106 @@ function AtsView({ cv }) {
 }
 
 /* ---------- Main page ---------- */
+/* ---------- Load / create ---------- */
+function useCvRecord(id) {
+  const navigate = useNavigate();
+  const [state, setState] = useState({ status: 'loading', record: null, error: null });
+  // Guards the create against StrictMode's double effect run in development:
+  // refs survive that re-run, so only one POST goes out.
+  const creating = useRef(false);
+
+  useEffect(() => {
+    if (id) return undefined;
+    if (creating.current) return undefined;
+    creating.current = true;
+
+    createCv({ title: 'Untitled CV' })
+      .then((response) => navigate(`/builder/${unwrap(response).id}`, { replace: true }))
+      .catch((error) =>
+        setState({
+          status: 'error',
+          record: null,
+          error: apiMessage(error, 'Could not create a new CV.'),
+        })
+      );
+    return undefined;
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    let cancelled = false;
+    setState({ status: 'loading', record: null, error: null });
+
+    getCv(id)
+      .then((record) => {
+        if (!cancelled) setState({ status: 'ready', record, error: null });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setState({
+          status: 'error',
+          record: null,
+          error:
+            apiStatus(error) === HTTP.NOT_FOUND
+              ? 'This CV does not exist, or it is not yours.'
+              : apiMessage(error, 'Could not load this CV.'),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  return state;
+}
+
+/* ---------- Main page ---------- */
 export default function Builder() {
   const { id } = useParams();
+  const { status, record, error } = useCvRecord(id);
 
-  // Load existing CV or create a blank one on first mount.
-  const [cv, setCV] = useState(() => {
-    if (id) {
-      const existing = getCV(id);
-      if (existing) return existing;
-    }
-    const created = createCV({ title: 'Untitled CV' });
-    // Replace the URL so a refresh edits the same CV instead of making another.
-    window.history.replaceState(null, '', `/builder/${created.id}`);
-    return created;
-  });
+  if (status === 'error') {
+    return (
+      <>
+        <TopNav />
+        <main className="state-panel">
+          <span className="icon-chip tone-danger" aria-hidden="true"><AlertCircle /></span>
+          <h1>Can&apos;t open this CV</h1>
+          <p className="text-muted text-sm mb-6">{error}</p>
+          <Link className="btn btn-primary" to="/dashboard">Back to your CVs</Link>
+        </main>
+      </>
+    );
+  }
 
-  const [openSections, setOpenSections] = useState({ experience: true });
+  if (status !== 'ready') {
+    return (
+      <>
+        <TopNav />
+        <main className="splash" style={{ minHeight: 'calc(100vh - var(--nav-h))' }} role="status" aria-live="polite">
+          <div className="splash-spinner" aria-hidden="true" />
+          <p className="splash-text">{id ? 'Loading CV…' : 'Creating a new CV…'}</p>
+        </main>
+      </>
+    );
+  }
+
+  // Keyed by id so switching CVs starts the editor from a clean slate.
+  return <Editor key={record.id} record={record} />;
+}
+
+/* ---------- Editor ---------- */
+function Editor({ record }) {
+  const cvId = record.id;
+  const [cv, setCV] = useState(() => toEditorModel(record.content));
+  const [meta, setMeta] = useState(() => ({
+    title: record.title,
+    templateKey: record.templateKey,
+    status: record.status,
+  }));
+  const [templates, setTemplates] = useState([]);
+
+  const [openSections, setOpenSections] = useState({ personal: true, experience: true });
   const [previewTab, setPreviewTab] = useState('preview');
   const [zoom, setZoom] = useState(1);
   const [mobileTab, setMobileTab] = useState('form');
@@ -230,28 +256,98 @@ export default function Builder() {
   const [importSteps, setImportSteps] = useState(null); // null | index of active step
   const [importDone, setImportDone] = useState(false);
   const [exportState, setExportState] = useState('pending'); // pending | processing | complete
-  const [savedAt, setSavedAt] = useState(Date.now());
-  const saveTimer = useRef(null);
+  const [saveState, setSaveState] = useState('saved'); // saving | saved | error
 
-  // Debounced autosave to the mock store.
   useEffect(() => {
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      updateCV(cv.id, cv);
-      setSavedAt(Date.now());
-    }, 600);
-    return () => clearTimeout(saveTimer.current);
-  }, [cv]);
+    fetchTemplates()
+      .then(setTemplates)
+      .catch(() => setTemplates([]));
+  }, []);
+
+  /* --- Content autosave --- */
+  // The document last accepted by the server. New saves are written onto it so
+  // sections and keys this editor does not know survive (see cv/content.js).
+  const savedDocument = useRef(record.content);
+  const savedJson = useRef(JSON.stringify(toContent(toEditorModel(record.content), record.content)));
+  // Saves run one at a time, in order, so a slow response can never land after
+  // a newer one and leave `savedDocument` stale.
+  const saveChain = useRef(Promise.resolve());
+  const pendingSave = useRef(null);
+
+  const saveContent = useCallback(
+    (model) => {
+      const document = toContent(model, savedDocument.current);
+      const json = JSON.stringify(document);
+      if (json === savedJson.current) {
+        setSaveState('saved');
+        return;
+      }
+      setSaveState('saving');
+      saveChain.current = saveChain.current.then(() =>
+        replaceCvContent(cvId, document)
+          .then((saved) => {
+            savedDocument.current = saved.content;
+            savedJson.current = json;
+            setSaveState('saved');
+          })
+          .catch((err) => {
+            setSaveState('error');
+            showToast(apiMessage(err, 'Could not save your changes.'));
+          })
+      );
+    },
+    [cvId]
+  );
+
+  useEffect(() => {
+    pendingSave.current = () => saveContent(cv);
+    const timer = setTimeout(() => {
+      pendingSave.current = null;
+      saveContent(cv);
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [cv, saveContent]);
+
+  // Leaving the page inside the debounce window must not drop the last edit.
+  useEffect(() => () => pendingSave.current?.(), []);
+
+  /* --- Metadata --- */
+  const savedTitle = useRef(record.title);
+
+  useEffect(() => {
+    const title = meta.title.trim();
+    if (!title || title === savedTitle.current) return undefined;
+    const timer = setTimeout(() => {
+      updateCvMeta(cvId, { title })
+        .then((saved) => {
+          savedTitle.current = saved.title;
+        })
+        .catch((err) => showToast(apiMessage(err, 'Could not rename this CV.')));
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [meta.title, cvId]);
+
+  const changeMeta = (field, value) => {
+    const previous = meta[field];
+    setMeta((prev) => ({ ...prev, [field]: value }));
+    updateCvMeta(cvId, { [field]: value }).catch((err) => {
+      setMeta((prev) => ({ ...prev, [field]: previous }));
+      showToast(apiMessage(err, 'Could not update this CV.'));
+    });
+  };
+
+  const Template = templateComponent(meta.templateKey);
+  const currentTemplateName = templateName(templates, meta.templateKey);
 
   const patch = (updates) => setCV((prev) => ({ ...prev, ...updates }));
-  const patchPersonal = (k, v) => patch({ personal: { ...cv.personal, [k]: v } });
-  const patchSkills = (k, v) => patch({ skills: { ...cv.skills, [k]: v } });
+  const patchPersonal = (k, v) => setCV((prev) => ({ ...prev, personal: { ...prev.personal, [k]: v } }));
+  const patchSkills = (k, v) => setCV((prev) => ({ ...prev, skills: { ...prev.skills, [k]: v } }));
 
   const patchItem = (list, itemId, k, v) =>
-    patch({ [list]: cv[list].map((it) => (it.id === itemId ? { ...it, [k]: v } : it)) });
-  const addItem = (list, blank) => patch({ [list]: [...cv[list], { ...blank, id: uid() }] });
+    setCV((prev) => ({ ...prev, [list]: prev[list].map((it) => (it.id === itemId ? { ...it, [k]: v } : it)) }));
+  const addItem = (list, blank) => setCV((prev) => ({ ...prev, [list]: [...prev[list], { ...blank, id: newId() }] }));
   const removeItem = (list, itemId) =>
-    patch({ [list]: cv[list].filter((it) => it.id !== itemId) });
+    setCV((prev) => ({ ...prev, [list]: prev[list].filter((it) => it.id !== itemId) }));
 
   const toggleSection = (key) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -265,7 +361,17 @@ export default function Builder() {
     projects: cv.projects.length > 0,
   };
 
-  const skillsText = useMemo(() => cv.skills.technical.join(', '), [cv.skills.technical]);
+  // Skills are typed as comma-separated text but stored as lists. The raw text
+  // is kept separately so a trailing ", " survives long enough to type the next
+  // skill; re-deriving the text from the parsed list would eat it on every key.
+  const [skillsDraft, setSkillsDraft] = useState(() => ({
+    technical: cv.skills.technical.join(', '),
+    soft: cv.skills.soft.join(', '),
+  }));
+  const changeSkillList = (k, value) => {
+    setSkillsDraft((prev) => ({ ...prev, [k]: value }));
+    patchSkills(k, value.split(',').map((s) => s.trim()).filter(Boolean));
+  };
 
   /* --- Import simulation (mock of POST /api/import) --- */
   const IMPORT_STEPS = ['Upload received', 'Reading document', 'Extracting sections', 'Building editable CV'];
@@ -328,31 +434,32 @@ export default function Builder() {
     >
       {icon}
       <span>{label}</span>
-      <span style={{ marginLeft: 'auto', fontSize: '0.625rem', color: done ? 'var(--success)' : 'var(--fg-subtle)', opacity: done ? 1 : 0.4 }}>
-        {done ? '✓' : '○'}
+      <span className={`sidebar-check ${done ? 'done' : 'todo'}`}>
+        {done ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
+        <span className="sr-only">{done ? 'complete' : 'incomplete'}</span>
       </span>
     </a>
-  );
-
-  const icon = (path) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">{path}</svg>
   );
 
   return (
     <>
       <TopNav />
 
-      <div className="mobile-tabs" style={{ position: 'sticky', top: '56px', zIndex: 40, background: '#fff', borderBottom: '1px solid var(--border)', display: 'flex' }}>
+      <div className="mobile-tabs" role="tablist" aria-label="Editor view">
         <button
-          className="btn btn-ghost"
-          style={{ flex: 1, borderRadius: 0, borderBottom: `2px solid ${mobileTab === 'form' ? 'var(--primary)' : 'transparent'}`, fontSize: '0.8125rem' }}
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'form'}
+          className={`mobile-tab${mobileTab === 'form' ? ' active' : ''}`}
           onClick={() => setMobileTab('form')}
         >
           Edit
         </button>
         <button
-          className="btn btn-ghost"
-          style={{ flex: 1, borderRadius: 0, borderBottom: `2px solid ${mobileTab === 'preview' ? 'var(--primary)' : 'transparent'}`, fontSize: '0.8125rem' }}
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'preview'}
+          className={`mobile-tab${mobileTab === 'preview' ? ' active' : ''}`}
           onClick={() => setMobileTab('preview')}
         >
           Preview
@@ -363,25 +470,25 @@ export default function Builder() {
         <aside className="sidebar">
           <div className="sidebar-section">
             <div className="sidebar-title">CV Content</div>
-            {sidebarLink('personal', 'Personal Info', icon(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>), sectionComplete.personal)}
-            {sidebarLink('summary', 'Summary', icon(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></>), sectionComplete.summary)}
-            {sidebarLink('experience', 'Experience', icon(<><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>), sectionComplete.experience)}
-            {sidebarLink('education', 'Education', icon(<><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5" /></>), sectionComplete.education)}
-            {sidebarLink('skills', 'Skills', icon(<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />), sectionComplete.skills)}
-            {sidebarLink('projects', 'Projects', icon(<><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>), sectionComplete.projects)}
+            {sidebarLink('personal', 'Personal Info', <User aria-hidden="true" />, sectionComplete.personal)}
+            {sidebarLink('summary', 'Summary', <FileText aria-hidden="true" />, sectionComplete.summary)}
+            {sidebarLink('experience', 'Experience', <Briefcase aria-hidden="true" />, sectionComplete.experience)}
+            {sidebarLink('education', 'Education', <GraduationCap aria-hidden="true" />, sectionComplete.education)}
+            {sidebarLink('skills', 'Skills', <Wrench aria-hidden="true" />, sectionComplete.skills)}
+            {sidebarLink('projects', 'Projects', <Code aria-hidden="true" />, sectionComplete.projects)}
           </div>
-          <div className="sidebar-section" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="sidebar-section">
             <div className="sidebar-title">Actions</div>
             <a className="sidebar-link" href="#" onClick={(e) => { e.preventDefault(); setImportOpen(true); }}>
-              {icon(<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></>)}
+              <Upload aria-hidden="true" />
               Import CV
             </a>
             <Link className="sidebar-link" to="/scoring">
-              {icon(<><path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" /></>)}
+              <BarChart3 aria-hidden="true" />
               CV Match Analysis
             </Link>
             <a className="sidebar-link" href="#" onClick={(e) => { e.preventDefault(); setExportState('pending'); setExportOpen(true); }}>
-              {icon(<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>)}
+              <Download aria-hidden="true" />
               Export PDF
             </a>
           </div>
@@ -389,29 +496,78 @@ export default function Builder() {
 
         <div className="builder-main">
           <div className="form-panel" style={mobileTab === 'preview' ? { display: 'none' } : undefined}>
-            <div className="flex justify-between items-center mb-6">
-              <div>
+            <div className="editor-head">
+              <div className="min-w-0 flex-1">
                 <input
-                  className="input"
-                  style={{ fontSize: '1.125rem', fontWeight: 700, border: 'none', padding: 0, boxShadow: 'none', background: 'transparent' }}
-                  value={cv.title}
-                  onChange={(e) => patch({ title: e.target.value })}
+                  className="title-input"
+                  value={meta.title}
+                  maxLength={255}
+                  placeholder="Untitled CV"
+                  onChange={(e) => setMeta((prev) => ({ ...prev, title: e.target.value }))}
                   aria-label="CV title"
                 />
-                <p className="text-sm text-muted mt-1">
-                  <span style={{ color: 'var(--success)' }}>✓</span> Saved{' '}
-                  {Math.max(0, Math.round((Date.now() - savedAt) / 1000))}s ago · Template: {cv.template}
-                </p>
+                <div className="editor-meta">
+                  {saveState === 'saving' && (
+                    <span className="save-state">
+                      <Loader2 className="spin" aria-hidden="true" /> Saving…
+                    </span>
+                  )}
+                  {saveState === 'saved' && (
+                    <span className="save-state saved">
+                      <Check aria-hidden="true" /> Saved
+                    </span>
+                  )}
+                  {saveState === 'error' && (
+                    <span className="save-state error">
+                      <AlertCircle aria-hidden="true" /> Not saved —{' '}
+                      <button type="button" className="link-btn" style={{ color: 'inherit' }} onClick={() => saveContent(cv)}>
+                        retry
+                      </button>
+                    </span>
+                  )}
+                  <span aria-hidden="true">·</span>
+                  <span>Template:</span>
+                  {/* A picker only earns its place once the backend offers a choice. */}
+                  {templates.length > 1 ? (
+                    <select
+                      aria-label="Template"
+                      className="input inline-select"
+                      value={meta.templateKey}
+                      onChange={(e) => changeMeta('templateKey', e.target.value)}
+                    >
+                      {templates.map((t) => (
+                        <option key={t.key} value={t.key} title={t.description}>{t.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="font-semibold" style={{ color: 'var(--fg-muted)' }}>{currentTemplateName}</span>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button className="btn btn-secondary btn-sm" onClick={() => setImportOpen(true)}>Import</button>
-                <button className="btn btn-primary btn-sm" onClick={() => { setExportState('pending'); setExportOpen(true); }}>Export PDF</button>
+              <div className="editor-actions">
+                <select
+                  aria-label="CV status"
+                  className="input inline-select"
+                  value={meta.status}
+                  onChange={(e) => changeMeta('status', e.target.value)}
+                >
+                  <option value={CV_STATUS.DRAFT}>Draft</option>
+                  <option value={CV_STATUS.READY}>Ready</option>
+                </select>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setImportOpen(true)}>
+                  <Upload aria-hidden="true" />
+                  Import
+                </button>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => { setExportState('pending'); setExportOpen(true); }}>
+                  <Download aria-hidden="true" />
+                  Export PDF
+                </button>
               </div>
             </div>
 
             <div id="personal">
               <Section num="01" title="Personal Information" status={sectionComplete.personal ? 'Complete' : 'Incomplete'} complete={sectionComplete.personal} open={Boolean(openSections.personal)} onToggle={() => toggleSection('personal')}>
-                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-2">
                   <div className="form-group"><label className="label">Full Name</label><input type="text" className="input" value={cv.personal.fullName} onChange={(e) => patchPersonal('fullName', e.target.value)} /></div>
                   <div className="form-group"><label className="label">Professional Title</label><input type="text" className="input" value={cv.personal.title} onChange={(e) => patchPersonal('title', e.target.value)} /></div>
                   <div className="form-group"><label className="label">Email</label><input type="email" className="input" value={cv.personal.email} onChange={(e) => patchPersonal('email', e.target.value)} /></div>
@@ -431,11 +587,11 @@ export default function Builder() {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <textarea className="textarea" rows="4" value={cv.summary} onChange={(e) => patch({ summary: e.target.value })} />
                 </div>
-                <div className="flex gap-1 mt-2">
-                  <button className="btn btn-sm btn-ghost" style={{ fontSize: '0.6875rem', padding: '0.25rem 0.5rem' }} onClick={() => showToast('Rich text editing is a planned feature')}><b>B</b></button>
-                  <button className="btn btn-sm btn-ghost" style={{ fontSize: '0.6875rem', padding: '0.25rem 0.5rem' }} onClick={() => showToast('Rich text editing is a planned feature')}><i>I</i></button>
-                  <button className="btn btn-sm btn-ghost" style={{ fontSize: '0.6875rem', padding: '0.25rem 0.5rem' }} onClick={() => showToast('Rich text editing is a planned feature')}>🔗</button>
-                  <button className="btn btn-sm btn-ghost" style={{ fontSize: '0.6875rem', padding: '0.25rem 0.5rem' }} onClick={() => showToast('Rich text editing is a planned feature')}>• List</button>
+                <div className="editor-toolbar">
+                  <button type="button" className="icon-btn" aria-label="Bold (planned)" title="Bold (planned)" onClick={() => showToast('Rich text editing is a planned feature')}><Bold aria-hidden="true" /></button>
+                  <button type="button" className="icon-btn" aria-label="Italic (planned)" title="Italic (planned)" onClick={() => showToast('Rich text editing is a planned feature')}><Italic aria-hidden="true" /></button>
+                  <button type="button" className="icon-btn" aria-label="Link (planned)" title="Link (planned)" onClick={() => showToast('Rich text editing is a planned feature')}><Link2 aria-hidden="true" /></button>
+                  <button type="button" className="icon-btn" aria-label="List (planned)" title="List (planned)" onClick={() => showToast('Rich text editing is a planned feature')}><List aria-hidden="true" /></button>
                 </div>
               </Section>
             </div>
@@ -447,23 +603,23 @@ export default function Builder() {
                     <div className="array-item-header">
                       <span className="array-item-title">{e.role || 'New role'}</span>
                       <div className="array-item-actions">
-                        <button className="icon-btn" title="Delete" onClick={() => removeItem('experience', e.id)}>✕</button>
+                        <button type="button" className="icon-btn danger" title="Delete" aria-label="Delete entry" onClick={() => removeItem('experience', e.id)}><X aria-hidden="true" /></button>
                       </div>
                     </div>
-                    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="form-grid-2 form-grid-tight">
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Company</label><input type="text" className="input" value={e.company} onChange={(ev) => patchItem('experience', e.id, 'company', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Role</label><input type="text" className="input" value={e.role} onChange={(ev) => patchItem('experience', e.id, 'role', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Start Date</label><input type="month" className="input" value={e.start} onChange={(ev) => patchItem('experience', e.id, 'start', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>End Date</label><input type="month" className="input" value={e.end} disabled={e.current} onChange={(ev) => patchItem('experience', e.id, 'end', ev.target.value)} /></div>
                     </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--fg-subtle)', margin: '0.25rem 0 0.5rem' }}>
+                    <label className="checkbox-row">
                       <input type="checkbox" checked={e.current} onChange={(ev) => patchItem('experience', e.id, 'current', ev.target.checked)} />
                       I currently work here
                     </label>
                     <div className="form-group" style={{ marginBottom: 0 }}><label className="label" style={{ fontSize: '0.75rem' }}>Description</label><textarea className="textarea" rows="3" value={e.description} onChange={(ev) => patchItem('experience', e.id, 'description', ev.target.value)} /></div>
                   </div>
                 ))}
-                <button className="add-item-btn" onClick={() => addItem('experience', { company: '', role: '', start: '', end: '', current: false, description: '' })}>+ Add Experience</button>
+                <button type="button" className="add-item-btn" onClick={() => addItem('experience', { company: '', role: '', start: '', end: '', current: false, description: '' })}><Plus aria-hidden="true" /> Add experience</button>
               </Section>
             </div>
 
@@ -474,10 +630,10 @@ export default function Builder() {
                     <div className="array-item-header">
                       <span className="array-item-title">{e.degree || 'New degree'}</span>
                       <div className="array-item-actions">
-                        <button className="icon-btn" title="Delete" onClick={() => removeItem('education', e.id)}>✕</button>
+                        <button type="button" className="icon-btn danger" title="Delete" aria-label="Delete entry" onClick={() => removeItem('education', e.id)}><X aria-hidden="true" /></button>
                       </div>
                     </div>
-                    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="form-grid-2 form-grid-tight">
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Institution</label><input type="text" className="input" value={e.institution} onChange={(ev) => patchItem('education', e.id, 'institution', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Degree</label><input type="text" className="input" value={e.degree} onChange={(ev) => patchItem('education', e.id, 'degree', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Start Year</label><input type="number" className="input" value={e.startYear} onChange={(ev) => patchItem('education', e.id, 'startYear', ev.target.value)} /></div>
@@ -486,7 +642,7 @@ export default function Builder() {
                     <div className="form-group" style={{ marginBottom: 0 }}><label className="label" style={{ fontSize: '0.75rem' }}>Achievements</label><textarea className="textarea" rows="2" value={e.achievements} onChange={(ev) => patchItem('education', e.id, 'achievements', ev.target.value)} /></div>
                   </div>
                 ))}
-                <button className="add-item-btn" onClick={() => addItem('education', { institution: '', degree: '', startYear: '', endYear: '', achievements: '' })}>+ Add Education</button>
+                <button type="button" className="add-item-btn" onClick={() => addItem('education', { institution: '', degree: '', startYear: '', endYear: '', achievements: '' })}><Plus aria-hidden="true" /> Add education</button>
               </Section>
             </div>
 
@@ -498,10 +654,8 @@ export default function Builder() {
                     className="textarea"
                     rows="3"
                     placeholder="Java, React, PostgreSQL, Spring Boot..."
-                    value={skillsText}
-                    onChange={(e) =>
-                      patchSkills('technical', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
-                    }
+                    value={skillsDraft.technical}
+                    onChange={(e) => changeSkillList('technical', e.target.value)}
                   />
                 </div>
                 <div className="form-group">
@@ -510,10 +664,8 @@ export default function Builder() {
                     className="textarea"
                     rows="2"
                     placeholder="Leadership, Communication..."
-                    value={cv.skills.soft.join(', ')}
-                    onChange={(e) =>
-                      patchSkills('soft', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
-                    }
+                    value={skillsDraft.soft}
+                    onChange={(e) => changeSkillList('soft', e.target.value)}
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -530,18 +682,18 @@ export default function Builder() {
                     <div className="array-item-header">
                       <span className="array-item-title">{pr.name || 'New project'}</span>
                       <div className="array-item-actions">
-                        <button className="icon-btn" title="AI Enhance (planned)" onClick={() => showToast('AI enhancement is a planned backend feature')}>✨</button>
-                        <button className="icon-btn" title="Delete" onClick={() => removeItem('projects', pr.id)}>✕</button>
+                        <button type="button" className="icon-btn" title="AI Enhance (planned)" aria-label="AI enhance (planned)" onClick={() => showToast('AI enhancement is a planned backend feature')}><Sparkles aria-hidden="true" /></button>
+                        <button type="button" className="icon-btn danger" title="Delete" aria-label="Delete entry" onClick={() => removeItem('projects', pr.id)}><X aria-hidden="true" /></button>
                       </div>
                     </div>
-                    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="form-grid-2 form-grid-tight">
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Project Name</label><input type="text" className="input" value={pr.name} onChange={(ev) => patchItem('projects', pr.id, 'name', ev.target.value)} /></div>
                       <div className="form-group" style={{ marginBottom: '0.5rem' }}><label className="label" style={{ fontSize: '0.75rem' }}>Link</label><input type="url" className="input" value={pr.link} onChange={(ev) => patchItem('projects', pr.id, 'link', ev.target.value)} /></div>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}><label className="label" style={{ fontSize: '0.75rem' }}>Description</label><textarea className="textarea" rows="3" value={pr.description} onChange={(ev) => patchItem('projects', pr.id, 'description', ev.target.value)} /></div>
                   </div>
                 ))}
-                <button className="add-item-btn" onClick={() => addItem('projects', { name: '', link: '', description: '' })}>+ Add Project</button>
+                <button type="button" className="add-item-btn" onClick={() => addItem('projects', { name: '', link: '', description: '' })}><Plus aria-hidden="true" /> Add project</button>
               </Section>
             </div>
 
@@ -551,13 +703,13 @@ export default function Builder() {
           <div className="preview-panel" style={mobileTab === 'form' ? undefined : { display: 'block', position: 'relative', top: 0, height: 'auto', minHeight: 'calc(100vh - 56px)' }}>
             <div className="preview-toolbar">
               <div className="preview-actions">
-                <button className={`preview-tab${previewTab === 'preview' ? ' active' : ''}`} onClick={() => setPreviewTab('preview')}>Preview</button>
-                <button className={`preview-tab${previewTab === 'ats' ? ' active' : ''}`} onClick={() => setPreviewTab('ats')}>ATS View</button>
-                <button className={`preview-tab${previewTab === 'raw' ? ' active' : ''}`} onClick={() => setPreviewTab('raw')}>Raw</button>
+                <button type="button" className={`preview-tab${previewTab === 'preview' ? ' active' : ''}`} onClick={() => setPreviewTab('preview')}>Preview</button>
+                <button type="button" className={`preview-tab${previewTab === 'ats' ? ' active' : ''}`} onClick={() => setPreviewTab('ats')}>ATS View</button>
+                <button type="button" className={`preview-tab${previewTab === 'raw' ? ' active' : ''}`} onClick={() => setPreviewTab('raw')}>Raw</button>
               </div>
               <div className="zoom-controls">
                 {[0.75, 1, 1.25].map((z) => (
-                  <button key={z} className={`zoom-btn${zoom === z ? ' active' : ''}`} onClick={() => setZoom(z)}>
+                  <button type="button" key={z} className={`zoom-btn${zoom === z ? ' active' : ''}`} onClick={() => setZoom(z)}>
                     {Math.round(z * 100)}%
                   </button>
                 ))}
@@ -565,7 +717,7 @@ export default function Builder() {
             </div>
 
             <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
-              {previewTab === 'preview' && <PreviewDoc cv={cv} />}
+              {previewTab === 'preview' && <Template cv={cv} />}
               {previewTab === 'ats' && <AtsView cv={cv} />}
               {previewTab === 'raw' && (
                 <div className="ats-view">
@@ -578,8 +730,8 @@ export default function Builder() {
               )}
             </div>
 
-            <button className="btn btn-primary w-full mt-4" onClick={() => { setExportState('pending'); setExportOpen(true); }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            <button type="button" className="btn btn-primary w-full mt-4" onClick={() => { setExportState('pending'); setExportOpen(true); }}>
+              <Download aria-hidden="true" />
               Export as PDF
             </button>
           </div>
@@ -595,16 +747,11 @@ export default function Builder() {
         footer={<button className="btn btn-ghost" onClick={() => { setImportOpen(false); setImportSteps(null); setImportDone(false); }}>Cancel</button>}
       >
         {importSteps === null && (
-          <div
-            style={{ border: '2px dashed var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: '2rem', textAlign: 'center', cursor: 'pointer', color: 'var(--fg-subtle)' }}
-            onClick={simulateImport}
-          >
-            <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-            </div>
-            <div className="font-medium text-sm" style={{ color: 'var(--fg)' }}>Click to upload or drag and drop</div>
+          <button type="button" className="upload-drop" onClick={simulateImport}>
+            <span className="icon-chip" aria-hidden="true"><Upload /></span>
+            <div className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>Click to upload or drag and drop</div>
             <div className="text-xs text-muted mt-1">PDF or DOCX, max 5MB (simulated)</div>
-          </div>
+          </button>
         )}
         {importSteps !== null && (
           <>
@@ -614,7 +761,7 @@ export default function Builder() {
                 return (
                   <div className={`import-step ${state}`} key={label}>
                     <div className="import-step-icon">
-                      {state === 'done' ? '✓' : state === 'active' ? <span className="skeleton" style={{ width: '14px', height: '14px', borderRadius: '50%' }} /> : '○'}
+                      {state === 'done' ? <Check aria-hidden="true" /> : state === 'active' ? <Loader2 className="spin" aria-hidden="true" /> : <Circle aria-hidden="true" />}
                     </div>
                     <span>{label}</span>
                   </div>
@@ -625,7 +772,7 @@ export default function Builder() {
               <>
                 <div className="divider" />
                 <div className="font-medium text-sm mb-2">Review Extracted Data</div>
-                <div className="p-3 bg-muted rounded-md text-sm text-muted">
+                <div className="kv-panel text-sm text-muted">
                   Name: <b>Sandeep Mainali</b><br />Email: <b>sandeep@example.com</b><br />Experience: <b>2 entries detected</b>
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -640,7 +787,7 @@ export default function Builder() {
         <div className="font-medium text-sm mb-2">Or import from GitHub</div>
         <div className="flex gap-2">
           <input type="text" className="input" placeholder="github.com/username" defaultValue="github.com/mainalisandeep062" />
-          <button className="btn btn-secondary" style={{ whiteSpace: 'nowrap', fontSize: '0.8125rem' }} onClick={() => showToast('Fetching repositories... (backend endpoint pending)')}>Fetch Repos</button>
+          <button type="button" className="btn btn-secondary" onClick={() => showToast('Fetching repositories... (backend endpoint pending)')}>Fetch Repos</button>
         </div>
       </Modal>
 
@@ -660,13 +807,13 @@ export default function Builder() {
       >
         <div className={`job-state ${exportState}`}>
           <div className="job-state-icon">
-            {exportState === 'pending' ? '○' : exportState === 'processing' ? '⟳' : '✓'}
+            {exportState === 'pending' ? <FileText aria-hidden="true" /> : exportState === 'processing' ? <Loader2 className="spin" aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
           </div>
           <div>
             <div className="font-medium text-sm">
               {exportState === 'pending' ? 'Ready to export' : exportState === 'processing' ? 'Processing your PDF' : 'Export complete'}
             </div>
-            <div className="text-xs" style={{ opacity: 0.7 }}>
+            <div className="text-xs" style={{ opacity: 0.85 }}>
               {exportState === 'pending'
                 ? 'Your CV will be rendered server-side as a pixel-perfect PDF'
                 : exportState === 'processing'
@@ -675,19 +822,19 @@ export default function Builder() {
             </div>
           </div>
         </div>
-        <div className="p-4 bg-muted rounded-lg mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-medium text-sm">Template</span>
-            <span className="text-sm text-muted">{cv.template} ({cv.templateTier === 'premium' ? 'Premium' : 'Free'})</span>
+        <div className="kv-panel">
+          <div className="kv-row">
+            <span className="font-semibold">Template</span>
+            <span>{currentTemplateName}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="font-medium text-sm">File Name</span>
-            <span className="text-sm text-muted">{fileName}</span>
+          <div className="kv-row">
+            <span className="font-semibold">File name</span>
+            <span>{fileName}</span>
           </div>
         </div>
         {exportState === 'complete' && (
-          <button className="btn btn-primary w-full" onClick={downloadExport}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          <button type="button" className="btn btn-primary w-full" onClick={downloadExport}>
+            <Download aria-hidden="true" />
             Download PDF
           </button>
         )}

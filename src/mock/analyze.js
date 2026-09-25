@@ -20,7 +20,7 @@
  * copy ("keyword coverage, not a gamified score") stays honest.
  */
 
-import { cvToPlainText } from '@/mock/cvStore';
+import { cvToPlainText } from '@/cv/content';
 
 /** Tech/business vocabulary spotted in JDs, longest-first for greedy matching. */
 const VOCABULARY = [
