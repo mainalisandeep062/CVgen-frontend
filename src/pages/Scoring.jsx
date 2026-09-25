@@ -1,93 +1,144 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, BarChart3, CheckCircle2, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  Check,
+  CheckCircle2,
+  Lightbulb,
+  X,
+  XCircle,
+} from 'lucide-react';
 
 import TopNav from '@/components/mockui/TopNav';
-import { showToast } from '@/components/mockui/toast';
-import { getCv, listCvs } from '@/api/cv';
+import { analyzeCv, listCvs } from '@/api/cv';
 import { apiMessage } from '@/api/response';
-import { toEditorModel } from '@/cv/content';
-import { analyzeMatch } from '@/mock/analyze';
+import '@/styles/scoring.css';
 
 /**
- * Scoring — CV Match Analysis from the mock template.
+ * Scoring - CV Match Analysis.
  *
- * Unlike the static mock, the analysis is REAL client-side logic
- * (src/mock/analyze.js): keywords are extracted from the pasted job
- * description and matched against the selected CV from the mock store, so the
- * coverage, matched/missing pills, and suggestions all reflect the actual
- * inputs. It stands in for the planned POST /api/analysis/match endpoint.
- *
- * The CV itself is real: the picker lists GET /api/cvs and the selected CV's
- * content is fetched when the analysis runs.
+ * The analysis is server-side: POST /api/cvs/{id}/analysis with the pasted job
+ * description (and optional title) returns coverage, matched / missing /
+ * optional keywords, category scores, structural checks and suggestions. The
+ * CV picker lists GET /api/cvs; `?cv=<id>` (from the builder / dashboard)
+ * preselects one.
  */
 
-const SAMPLE_JD =
-  'We are looking for a Senior Full Stack Developer with 3+ years of experience in Java, Spring Boot, React, and PostgreSQL. The ideal candidate should have experience with microservices architecture, Docker, AWS, and CI/CD pipelines. Strong understanding of REST APIs, Git, and Agile methodologies is required. Experience with Redis, TypeScript, and cloud deployment is a plus.';
+const clampPct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 
-function ScoreBar({ label, value, color }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.width = '0%';
-    const t = setTimeout(() => {
-      el.style.width = `${value}%`;
-    }, 100);
-    return () => clearTimeout(t);
-  }, [value]);
+function formatYears(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded} yr${rounded === 1 ? '' : 's'}`;
+}
+
+function Gauge({ value }) {
+  const pct = clampPct(value);
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const tone = pct >= 70 ? 'good' : pct >= 40 ? 'fair' : 'low';
   return (
-    <div className="score-bar-container">
-      <div className="score-bar-header">
-        <span className="score-bar-label">{label}</span>
-        <span
-          className="score-bar-value"
-          style={{ color: color === 'green' ? 'var(--success)' : color === 'blue' ? 'var(--info)' : 'var(--warning)' }}
-        >
-          {value}%
-        </span>
-      </div>
-      <div className="score-bar-bg">
-        <div ref={ref} className={`score-bar-fill ${color}`} style={{ width: '0%' }} />
+    <div className={`score-gauge ${tone}`} role="img" aria-label={`Keyword coverage ${pct}%`}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle className="score-gauge-track" cx="60" cy="60" r={r} />
+        <circle
+          className="score-gauge-fill"
+          cx="60"
+          cy="60"
+          r={r}
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct / 100)}
+        />
+      </svg>
+      <div className="score-gauge-label">
+        {pct}
+        <small>%</small>
       </div>
     </div>
   );
 }
 
+function ScoreBar({ label, value, tone, note }) {
+  const pct = clampPct(value);
+  return (
+    <div className="score-row">
+      <div className="score-row-head">
+        <span className="score-row-label">{label}</span>
+        <span className={`score-row-value tone-${tone}`}>{pct}%</span>
+      </div>
+      <div
+        className="score-row-track"
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className={`score-row-fill tone-${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+      {note && <div className="score-row-note">{note}</div>}
+    </div>
+  );
+}
+
 export default function Scoring() {
+  const [searchParams] = useSearchParams();
+  const requestedId = searchParams.get('cv') || '';
+
   const [cvs, setCvs] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
+  const [cvsLoading, setCvsLoading] = useState(true);
+  const [cvsError, setCvsError] = useState('');
+  const [selectedId, setSelectedId] = useState(requestedId);
   const [jobTitle, setJobTitle] = useState('');
-  const [jd, setJd] = useState(SAMPLE_JD);
+  const [jd, setJd] = useState('');
   const [result, setResult] = useState(null);
+  const [analyzedId, setAnalyzedId] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     listCvs()
       .then((page) => {
+        if (cancelled) return;
         const items = page?.items ?? [];
         setCvs(items);
-        setSelectedId((current) => current || items[0]?.id || '');
+        setSelectedId((current) =>
+          items.some((cv) => String(cv.id) === String(current)) ? current : items[0]?.id ?? ''
+        );
       })
-      .catch((error) => showToast(apiMessage(error, 'Could not load your CVs.')));
+      .catch((err) => {
+        if (!cancelled) setCvsError(apiMessage(err, 'Could not load your CVs.'));
+      })
+      .finally(() => {
+        if (!cancelled) setCvsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const analyze = async () => {
+  const analyze = async (event) => {
+    event?.preventDefault();
     if (!selectedId) {
-      showToast('Select a CV first');
+      setError('Select a CV first.');
       return;
     }
     if (!jd.trim()) {
-      showToast('Paste a job description first');
+      setError('Paste a job description first.');
       return;
     }
     setAnalyzing(true);
-    showToast('Analyzing job description...');
+    setError('');
     try {
-      const record = await getCv(selectedId);
-      setResult(analyzeMatch(toEditorModel(record.content), jd));
-    } catch (error) {
-      showToast(apiMessage(error, 'Could not load that CV.'));
+      const analysis = await analyzeCv(selectedId, { jobTitle, jobDescription: jd });
+      setResult(analysis);
+      setAnalyzedId(selectedId);
+    } catch (err) {
+      setError(apiMessage(err, 'Could not analyze this CV. Please try again.'));
     } finally {
       setAnalyzing(false);
     }
@@ -97,107 +148,199 @@ export default function Scoring() {
     setJd('');
     setJobTitle('');
     setResult(null);
+    setError('');
   };
+
+  const matched = result?.matched ?? [];
+  const missing = result?.missing ?? [];
+  const optional = result?.optional ?? [];
+  const suggestions = result?.suggestions ?? [];
+  const warnings = result?.warnings ?? [];
+  const counts = result?.counts ?? {
+    matched: matched.length,
+    missing: missing.length,
+    warnings: warnings.filter((w) => !w.passed).length,
+  };
+  const categories = result?.categories ?? {};
+  const experienceNote =
+    result?.requiredYears != null
+      ? `${formatYears(result.requiredYears)} required · ${formatYears(result.cvYears ?? 0)} on your CV`
+      : null;
 
   return (
     <>
       <TopNav />
-      <main className="container scoring-page">
-        <div className="page-header">
+      <main className="container scoring-v2">
+        <header className="page-header">
           <div>
             <div className="page-eyebrow">Analysis</div>
             <h1>CV Match Analysis</h1>
             <p className="text-muted text-sm mt-1">
-              Paste a job description to see how well your CV aligns with it.
+              Paste a job description to see how well your CV lines up with it: matched and
+              missing keywords, experience fit and structural checks.
             </p>
           </div>
-        </div>
+        </header>
 
-        <div className="card p-6 mb-6">
-          <div className="scoring-grid-2">
+        <form className="card scoring-input" onSubmit={analyze}>
+          <div className="scoring-fields">
             <div className="form-group">
               <label className="label" htmlFor="score-cv">Select CV</label>
-              <select id="score-cv" className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                {cvs.length === 0 && <option value="">No CVs yet</option>}
+              <select
+                id="score-cv"
+                className="input"
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                disabled={cvsLoading || cvs.length === 0}
+              >
+                {cvsLoading && <option value="">Loading your CVs…</option>}
+                {!cvsLoading && cvs.length === 0 && <option value="">No CVs yet</option>}
                 {cvs.map((cv) => (
                   <option key={cv.id} value={cv.id}>{cv.title}</option>
                 ))}
               </select>
+              {cvsError && <div className="field-error">{cvsError}</div>}
+              {!cvsLoading && !cvsError && cvs.length === 0 && (
+                <div className="field-hint">
+                  <Link to="/dashboard">Create a CV</Link> first, then come back to analyze it.
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label className="label" htmlFor="score-title">Job Title (optional)</label>
-              <input id="score-title" type="text" className="input" placeholder="e.g. Senior React Developer" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+              <input
+                id="score-title"
+                type="text"
+                className="input"
+                placeholder="e.g. Senior React Developer"
+                value={jobTitle}
+                maxLength={200}
+                onChange={(e) => setJobTitle(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="form-group">
             <label className="label" htmlFor="score-jd">Job Description</label>
-            <textarea id="score-jd" className="textarea" rows="10" placeholder="Paste the full job description here..." value={jd} onChange={(e) => setJd(e.target.value)} />
+            <textarea
+              id="score-jd"
+              className="textarea scoring-jd"
+              rows={10}
+              placeholder="Paste the full job description here…"
+              value={jd}
+              onChange={(e) => setJd(e.target.value)}
+            />
           </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <button type="button" className="btn btn-primary" onClick={analyze} disabled={analyzing}>
+          {error && (
+            <div className="alert alert-danger mb-4" role="alert">
+              <XCircle aria-hidden="true" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="scoring-actions">
+            <button type="submit" className="btn btn-primary" disabled={analyzing || !selectedId}>
               <BarChart3 aria-hidden="true" />
               {analyzing ? 'Analyzing…' : 'Analyze Match'}
             </button>
-            <button type="button" className="btn btn-ghost" onClick={clear}>Clear</button>
+            <button type="button" className="btn btn-ghost" onClick={clear} disabled={analyzing}>
+              Clear
+            </button>
           </div>
-        </div>
+        </form>
 
         {result && (
-          <div>
-            <div className="card coverage-hero">
-              <div>
-                <div className="text-sm text-muted">Overall keyword coverage</div>
-                <div className="coverage-value">
-                  {result.coverage}
-                  <small>%</small>
-                </div>
-              </div>
-              <div className="coverage-counts">
-                <span className="count-chip success"><CheckCircle2 aria-hidden="true" />Matched {result.counts.matched}</span>
-                <span className="count-chip danger"><XCircle aria-hidden="true" />Missing {result.counts.missing}</span>
-                <span className="count-chip warning"><AlertTriangle aria-hidden="true" />Warnings {result.counts.warnings}</span>
-              </div>
-            </div>
-
-            <div className="card p-6 mb-4">
-              <div className="card-title mb-4">Category Breakdown</div>
-              <ScoreBar label="Skills Match" value={result.categories.skills} color="green" />
-              <ScoreBar label="Keyword Coverage" value={result.categories.keywords} color="blue" />
-              <ScoreBar label="Experience Relevance" value={result.categories.experience} color="amber" />
-            </div>
-
-            <div className="scoring-grid-2">
-              <div className="card p-6">
-                <div className="card-title mb-3">Matched Keywords</div>
-                <div className="flex flex-wrap gap-2">
-                  {result.matched.length === 0 && <span className="text-sm text-muted">No matches yet</span>}
-                  {result.matched.map((k) => (
-                    <span className="keyword-pill pill-match" key={k}>{k}</span>
-                  ))}
+          <section className="scoring-results" aria-label="Analysis results">
+            <div className="scoring-top">
+              <div className="card scoring-hero">
+                <Gauge value={result.coverage} />
+                <div className="scoring-hero-body">
+                  <div className="scoring-hero-title">Overall keyword coverage</div>
+                  <p className="text-sm text-muted">
+                    Share of the job description&apos;s keywords that appear in your CV.
+                  </p>
+                  <div className="scoring-counts">
+                    <span className="count-chip success">
+                      <CheckCircle2 aria-hidden="true" />Matched {counts.matched ?? 0}
+                    </span>
+                    <span className="count-chip danger">
+                      <XCircle aria-hidden="true" />Missing {counts.missing ?? 0}
+                    </span>
+                    <span className="count-chip warning">
+                      <AlertTriangle aria-hidden="true" />Warnings {counts.warnings ?? 0}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="card p-6">
-                <div className="card-title mb-3">Missing Keywords</div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {result.missing.map((k) => (
-                    <span className="keyword-pill pill-miss" key={k}>{k}</span>
+              <div className="card scoring-card">
+                <h2 className="scoring-card-title">Category breakdown</h2>
+                <ScoreBar label="Skills Match" value={categories.skills} tone="success" />
+                <ScoreBar label="Keyword Coverage" value={categories.keywords} tone="primary" />
+                <ScoreBar
+                  label="Experience Relevance"
+                  value={categories.experience}
+                  tone="warning"
+                  note={experienceNote}
+                />
+              </div>
+            </div>
+
+            <div className="scoring-grid">
+              <div className="card scoring-card">
+                <h2 className="scoring-card-title">
+                  Matched keywords <span className="scoring-count">{matched.length}</span>
+                </h2>
+                <div className="scoring-pills">
+                  {matched.length === 0 && (
+                    <span className="text-sm text-muted">No matching keywords yet.</span>
+                  )}
+                  {matched.map((k) => (
+                    <span className="keyword-pill pill-match" key={k}>
+                      <Check aria-hidden="true" />
+                      {k}
+                    </span>
                   ))}
-                  {result.optional.map((k) => (
-                    <span className="keyword-pill pill-optional" key={k}>{k}</span>
+                </div>
+              </div>
+
+              <div className="card scoring-card">
+                <h2 className="scoring-card-title">
+                  Missing keywords <span className="scoring-count">{missing.length}</span>
+                </h2>
+                <div className="scoring-pills">
+                  {missing.map((k) => (
+                    <span className="keyword-pill pill-miss" key={k}>
+                      <X aria-hidden="true" />
+                      {k}
+                    </span>
                   ))}
-                  {!result.missing.length && !result.optional.length && (
-                    <span className="text-sm text-muted">Nothing missing</span>
+                  {missing.length === 0 && (
+                    <span className="text-sm text-muted">Nothing required is missing.</span>
                   )}
                 </div>
-                {result.suggestions.length > 0 && (
-                  <div className="suggestions">
-                    <div className="text-xs text-muted mb-2 font-semibold">Quick Fix Suggestions</div>
+
+                {optional.length > 0 && (
+                  <>
+                    <div className="scoring-sublabel">Nice to have</div>
+                    <div className="scoring-pills">
+                      {optional.map((k) => (
+                        <span className="keyword-pill pill-nice" key={k}>{k}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {suggestions.length > 0 && (
+                  <div className="scoring-suggestions">
+                    <div className="scoring-sublabel">Quick fix suggestions</div>
                     <ul>
-                      {result.suggestions.map((s) => (
-                        <li key={s}>{s}</li>
+                      {suggestions.map((s) => (
+                        <li key={s}>
+                          <Lightbulb aria-hidden="true" />
+                          <span>{s}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -205,26 +348,30 @@ export default function Scoring() {
               </div>
             </div>
 
-            <div className="card p-6 mt-4">
-              <div className="card-title mb-2">Structural Warnings</div>
-              {result.warnings.map((w) => {
-                const ok = w.startsWith('Your CV uses');
-                return (
-                  <div className={`warning-row ${ok ? 'ok' : 'warn'}`} key={w}>
-                    {ok ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
-                    <span>{w}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {warnings.length > 0 && (
+              <div className="card scoring-card">
+                <h2 className="scoring-card-title">Structural checks</h2>
+                <ul className="scoring-checks">
+                  {warnings.map((w, i) => (
+                    <li className={`scoring-check ${w.passed ? 'ok' : 'warn'}`} key={w.code ?? i}>
+                      <span className="scoring-check-icon" aria-hidden="true">
+                        {w.passed ? <CheckCircle2 /> : <AlertTriangle />}
+                      </span>
+                      <span>{w.message}</span>
+                      <span className="sr-only">{w.passed ? '(passed)' : '(needs attention)'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-            <div className="flex justify-end mt-6">
-              <Link to={`/builder/${selectedId}`} className="btn btn-primary">
-                Go to Builder &amp; Fix Gaps
+            <div className="scoring-cta">
+              <Link to={`/builder/${analyzedId}`} className="btn btn-primary btn-lg">
+                Go to Builder &amp; fix gaps
                 <ArrowRight aria-hidden="true" />
               </Link>
             </div>
-          </div>
+          </section>
         )}
       </main>
     </>
