@@ -36,6 +36,12 @@ import api from '@/api/axios';
  *                                                     OAuth2 HTTP session; the
  *                                                     trusted-device cookie survives
  *
+ *   logoutAll POST /api/auth/logout-all
+ *             200                                     revokes EVERY refresh token the user
+ *                                                     holds (all browsers/devices) and clears
+ *                                                     this one's cookie. Needs the bearer
+ *                                                     token, unlike logout.
+ *
  * `purpose` is now a backend enum (OtpPurpose), so only the exact strings
  * "SIGNUP" and "LOGIN" deserialize — anything else is a 400, not a silent
  * mismatch. Send OTP_PURPOSE from config, never a hand-written literal.
@@ -73,4 +79,8 @@ export function exchangeOAuthCode(code) {
 
 export function logout() {
   return api.post('/api/auth/logout');
+}
+
+export function logoutAll() {
+  return api.post('/api/auth/logout-all');
 }
