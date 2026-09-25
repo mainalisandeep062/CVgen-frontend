@@ -37,7 +37,7 @@ export function FormRow({ children }) {
   return <div className="adm-form-row">{children}</div>;
 }
 
-/** Switch — a real button with role="switch"; the label text is always visible. */
+/** Switch - a real button with role="switch"; the label text is always visible. */
 export function Switch({ id, checked, onChange, label, description, disabled }) {
   return (
     <div className="adm-switch-row">
@@ -64,7 +64,7 @@ export function Switch({ id, checked, onChange, label, description, disabled }) 
 }
 
 /**
- * ChipGroup — single-select filter chips.
+ * ChipGroup - single-select filter chips.
  * @param {{ value: string, onChange: (v: string) => void, options: {value: string, label: string}[], label: string }} props
  */
 export function ChipGroup({ value, onChange, options, label }) {
@@ -85,7 +85,7 @@ export function ChipGroup({ value, onChange, options, label }) {
   );
 }
 
-/** RangeSelect — segmented day-range picker for analytics. */
+/** RangeSelect - segmented day-range picker for analytics. */
 export function RangeSelect({ value, onChange, options = [7, 30, 90], disabled }) {
   return (
     <div className="segmented adm-range" role="group" aria-label="Date range">

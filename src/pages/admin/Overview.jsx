@@ -72,7 +72,7 @@ function Card({ title, subtitle, action, children }) {
 }
 
 /**
- * Admin Overview — `GET /api/admin/analytics/overview?days=N`.
+ * Admin Overview - `GET /api/admin/analytics/overview?days=N`.
  *
  * KPI deltas compare `period.*` with `period.previous*` (the same-length window
  * right before). Charts: signups & CVs per day (area), revenue per day (bar),

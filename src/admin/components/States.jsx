@@ -1,6 +1,6 @@
 import { AlertCircle, Inbox, RefreshCw } from 'lucide-react';
 
-/** EmptyState — friendly "nothing here" panel with an optional action. */
+/** EmptyState - friendly "nothing here" panel with an optional action. */
 export function EmptyState({ icon: Icon = Inbox, title, message, action, compact = false }) {
   return (
     <div className={`adm-empty${compact ? ' compact' : ''}`}>
@@ -14,7 +14,7 @@ export function EmptyState({ icon: Icon = Inbox, title, message, action, compact
   );
 }
 
-/** ErrorState — load failure with the server's message and a retry button. */
+/** ErrorState - load failure with the server's message and a retry button. */
 export function ErrorState({ title = 'Could not load this', message, onRetry, compact = false }) {
   return (
     <div className={`adm-empty adm-error${compact ? ' compact' : ''}`} role="alert">

@@ -1,9 +1,9 @@
-import { Minus, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, Sparkles } from 'lucide-react';
 
 import { periodChange } from '@/admin/format';
 
 /**
- * StatCard — KPI tile: label, headline value, optional period-over-period delta.
+ * StatCard - KPI tile: label, headline value, optional period-over-period delta.
  *
  * Pass `current`/`previous` (raw numbers) to show a delta; the arrow icon and
  * the signed percentage carry the direction, the green/red tint only repeats
@@ -33,7 +33,7 @@ export default function StatCard({
     } else {
       const pct = Math.abs(change.pct);
       deltaText = `${change.direction === 'up' ? '+' : '−'}${pct >= 100 ? Math.round(pct) : pct.toFixed(1)}%`;
-      DeltaIcon = change.direction === 'up' ? TrendingUp : TrendingDown;
+      DeltaIcon = change.direction === 'up' ? ArrowUp : ArrowDown;
     }
   }
 

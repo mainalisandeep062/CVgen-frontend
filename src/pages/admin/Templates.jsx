@@ -90,7 +90,7 @@ function validate(form, isCreate, layout) {
 }
 
 /**
- * TemplateForm — create/edit dialog.
+ * TemplateForm - create/edit dialog.
  * Sections are limited to what the chosen layout can render; switching layout
  * drops sections the new layout doesn't support. `key` is editable on create
  * only (the backend treats it as immutable).
@@ -265,7 +265,7 @@ function TemplateForm({ open, template, layouts, onClose, onSaved }) {
 }
 
 /**
- * Admin Templates — card grid over `GET /api/admin/templates`, with the layout
+ * Admin Templates - card grid over `GET /api/admin/templates`, with the layout
  * catalogue from `GET /api/admin/templates/layouts` feeding the form.
  *
  * The active switch on a card sends a full PUT (the endpoint has no PATCH).
@@ -380,10 +380,12 @@ export default function Templates() {
               <article key={template.id} className={`adm-card adm-template-card${template.active ? '' : ' inactive'}`}>
                 <div className="adm-template-swatch" style={{ background: `linear-gradient(135deg, ${accent}33, ${accent}99)` }} aria-hidden="true">
                   <div className="adm-template-swatch-doc">
-                    <span style={{ background: accent }} />
+                    <span className="adm-doc-head" style={{ background: accent }} />
+                    <span className="adm-doc-sub" />
+                    <span className="adm-doc-rule" style={{ background: accent }} />
                     <span />
-                    <span style={{ width: '80%' }} />
-                    <span style={{ width: '65%' }} />
+                    <span style={{ width: '82%' }} />
+                    <span style={{ width: '64%' }} />
                   </div>
                 </div>
                 <div className="adm-template-body">
@@ -454,7 +456,7 @@ export default function Templates() {
         title="Delete this template?"
         message={
           deleteTarget
-            ? `“${deleteTarget.name}” will be removed. Templates that are in use or set as the default can't be deleted — deactivate them instead.`
+            ? `“${deleteTarget.name}” will be removed. Templates that are in use or set as the default can't be deleted. Deactivate them instead.`
             : ''
         }
         confirmLabel="Delete template"

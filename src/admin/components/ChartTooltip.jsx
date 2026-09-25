@@ -1,5 +1,5 @@
 /**
- * ChartTooltip — recharts `content` renderer in the admin card style.
+ * ChartTooltip - recharts `content` renderer in the admin card style.
  * `formatValue(value, name)` formats each row; `formatLabel(label)` the heading.
  */
 export default function ChartTooltip({ active, payload, label, formatValue, formatLabel }) {

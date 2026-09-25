@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 ];
 
 /**
- * AdminLayout — shell for every /admin route (the route guard lives in App.jsx).
+ * AdminLayout - shell for every /admin route (the route guard lives in App.jsx).
  *
  * Left sidebar with the admin nav; under 960px it becomes an off-canvas drawer
  * opened from the top bar's menu button (closes on navigation, scrim click or

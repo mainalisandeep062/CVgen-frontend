@@ -10,7 +10,7 @@ function initials(name, email) {
 }
 
 /**
- * UserAvatar — someone else's picture (admin tables), or initials.
+ * UserAvatar - someone else's picture (admin tables), or initials.
  * Unlike mockui/Avatar this does not read the signed-in user's avatar store.
  * The URL is public; `toFileUrl` makes a same-origin path absolute.
  */

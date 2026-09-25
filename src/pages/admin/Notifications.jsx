@@ -79,7 +79,7 @@ function validate(form) {
 }
 
 /**
- * Admin Notifications — compose a notification and review what was sent.
+ * Admin Notifications - compose a notification and review what was sent.
  *
  *   GET    /api/admin/notifications?page=&size=
  *   POST   /api/admin/notifications   { title, body, level, link?, audience, recipientEmail? }
@@ -395,7 +395,7 @@ export default function Notifications() {
                             {notification.link}
                           </span>
                         )}
-                        <span title={formatDateTime(notification.createdAt)}>{timeAgo(notification.createdAt, '—')}</span>
+                        <span title={formatDateTime(notification.createdAt)}>{timeAgo(notification.createdAt, '-')}</span>
                         {notification.createdByEmail && <span>by {notification.createdByEmail}</span>}
                       </div>
                     </div>

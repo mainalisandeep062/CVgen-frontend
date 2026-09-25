@@ -2,14 +2,14 @@ import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle, X } from 'lucide-react';
 
-/** Open dialogs, innermost last — only the top one reacts to Escape/Tab. */
+/** Open dialogs, innermost last - only the top one reacts to Escape/Tab. */
 const openStack = [];
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Dialog — admin modal with a focus trap, Escape to close and focus restore.
+ * Dialog - admin modal with a focus trap, Escape to close and focus restore.
  *
  * Built on the shared `.modal-overlay` / `.modal` styles. On open, focus moves
  * to the first `[data-autofocus]` element (or the first focusable one); Tab and
@@ -94,7 +94,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="modal-overlay"
+      className="modal-overlay adm-overlay"
       onClick={(event) => {
         if (event.target === event.currentTarget && !busy) onClose?.();
       }}
@@ -134,7 +134,7 @@ export function Dialog({
 }
 
 /**
- * ConfirmModal — confirmation on top of Dialog.
+ * ConfirmModal - confirmation on top of Dialog.
  *
  * Cancel gets initial focus so a blind Enter is never destructive (unless the
  * children contain their own `data-autofocus` input, e.g. a typed-email check).
