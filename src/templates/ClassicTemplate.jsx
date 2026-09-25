@@ -1,13 +1,33 @@
 import { formatMonth } from '@/cv/content';
 
 /**
- * Classic — the default template (backend key "classic").
+ * Classic - the default template (backend key "classic").
  *
  * Single column with ruled section headings. Renders the editor model from
  * cv/content, so it redraws on every keystroke without touching the server.
  * Draws exactly the section types the backend registry lists for this
  * template: SUMMARY, EXPERIENCE, EDUCATION, SKILLS, PROJECTS, LANGUAGES.
  */
+/**
+ * Several lines become a bullet list, one line stays a paragraph - the same
+ * rule the server's classic.html applies, so preview and PDF agree.
+ */
+function Body({ text }) {
+  const lines = (text || '')
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-•*]\s*/, '').trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  if (lines.length === 1) return <div className="doc-entry-desc">{lines[0]}</div>;
+  return (
+    <ul className="doc-bullets">
+      {lines.map((line, i) => (
+        <li key={i}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
 export default function ClassicTemplate({ cv }) {
   const p = cv.personal;
   const contact = [p.email, p.phone, p.location, p.linkedin, p.website].filter(Boolean);
@@ -40,13 +60,13 @@ export default function ClassicTemplate({ cv }) {
             <div className="doc-entry" key={e.id}>
               <div className="doc-entry-header">
                 <span className="doc-entry-title">
-                  {e.role || 'Role'} — {e.company || 'Company'}
+                  {e.role || 'Role'}, {e.company || 'Company'}
                 </span>
                 <span className="doc-entry-date">
                   {formatMonth(e.start)} – {e.current ? 'Present' : formatMonth(e.end)}
                 </span>
               </div>
-              <div className="doc-entry-desc">{e.description}</div>
+              <Body text={e.description} />
             </div>
           ))}
         </div>
@@ -58,13 +78,13 @@ export default function ClassicTemplate({ cv }) {
             <div className="doc-entry" key={e.id}>
               <div className="doc-entry-header">
                 <span className="doc-entry-title">
-                  {e.degree || 'Degree'} — {e.institution || 'Institution'}
+                  {e.degree || 'Degree'}, {e.institution || 'Institution'}
                 </span>
                 <span className="doc-entry-date">
                   {e.startYear} – {e.endYear}
                 </span>
               </div>
-              <div className="doc-entry-desc">{e.achievements}</div>
+              <Body text={e.achievements} />
             </div>
           ))}
         </div>
@@ -88,7 +108,7 @@ export default function ClassicTemplate({ cv }) {
                 <span className="doc-entry-title">{pr.name || 'Project'}</span>
                 {pr.link && <span className="doc-entry-date">{pr.link}</span>}
               </div>
-              <div className="doc-entry-desc">{pr.description}</div>
+              <Body text={pr.description} />
             </div>
           ))}
         </div>
