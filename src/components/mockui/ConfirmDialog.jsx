@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 /**
- * ConfirmDialog — a small yes/no modal for actions that should not fire on a
+ * ConfirmDialog - a small yes/no modal for actions that should not fire on a
  * stray click (signing out, and later deletions).
  *
  * Built on the same `.modal-overlay` / `.modal` shell as Modal.jsx rather than

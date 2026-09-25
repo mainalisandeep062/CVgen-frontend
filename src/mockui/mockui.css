@@ -1,5 +1,5 @@
 /* ============================================
-   CVGen component styles — soft visual language
+   CVGen component styles - soft visual language
    Tokens live in src/styles/tokens.css (imported first in main.jsx).
    ============================================ */
 
@@ -287,7 +287,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--mk-primary); w
 .user-menu-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.625rem 0.5rem; }
 .user-menu-identity { min-width: 0; }
 .user-menu-name { font-size: 0.875rem; font-weight: 700; }
-/* Emails are long and arbitrary — clip rather than widen the panel. */
+/* Emails are long and arbitrary - clip rather than widen the panel. */
 .user-menu-email {
   font-size: 0.75rem; color: var(--fg-subtle);
   max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -898,7 +898,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--mk-primary); w
 }
 @media (max-width: 720px) {
   /* App nav collapses to icons; the landing page's text-only anchors hide
-     instead — the same sections sit right below the fold. */
+     instead - the same sections sit right below the fold. */
   .topnav-link-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .topnav-link { padding: 0.5rem; }
   .landing-nav .topnav-link { display: none; }

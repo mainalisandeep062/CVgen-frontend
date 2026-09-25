@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 
-/** Brand — gradient logo mark + wordmark, linking home. Presentational only. */
+/** Brand - gradient logo mark + wordmark, linking home. Presentational only. */
 export default function Brand({ to = '/', onDark = false, compact = false, className = '' }) {
   return (
     <Link

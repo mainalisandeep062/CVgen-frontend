@@ -2,12 +2,12 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
- * Modal — design-system modal (.modal-overlay / .modal).
+ * Modal - design-system modal (.modal-overlay / .modal).
  * Renders nothing when closed; closes on overlay click or the close button.
  *
  * Portalled to <body> on purpose. `.modal-overlay` is `position: fixed`, and a
  * fixed descendant of an element with `backdrop-filter` (`.topnav`, the builder
- * toolbar) is positioned against THAT element instead of the viewport — the
+ * toolbar) is positioned against THAT element instead of the viewport - the
  * overlay then collapses into the nav strip at the top of the page. The portal
  * keeps the modal out of any such containing block wherever it is mounted from.
  */

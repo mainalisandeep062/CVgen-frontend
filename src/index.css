@@ -6,7 +6,7 @@
  * shadcn/ui tokens. These MUST stay bare HSL triplets ("245 76% 60%") because
  * tailwind.config.js wraps them as `hsl(var(--primary))`. They are tuned to
  * match the app palette in src/styles/tokens.css (which uses `--mk-` names for
- * the same roles precisely so the two never collide — see the note there).
+ * the same roles precisely so the two never collide - see the note there).
  */
 @layer base {
   :root {

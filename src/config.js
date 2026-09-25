@@ -12,8 +12,8 @@ export const API_BASE_URL =
  * Absolute URL for a file the backend served us a link to.
  *
  * The backend's FileUrlResolver only emits an absolute URL when
- * STORAGE_PUBLIC_BASE_URL is configured; with it unset — the default, and the
- * case in local development — it returns a SAME-ORIGIN path like
+ * STORAGE_PUBLIC_BASE_URL is configured; with it unset - the default, and the
+ * case in local development - it returns a SAME-ORIGIN path like
  * `/api/files/avatars/<id>`. The frontend is served from another origin (:3000
  * against the API on :8080), so dropping that path straight into <img src>
  * resolves it against the page origin and 404s, leaving the user on initials
@@ -26,12 +26,12 @@ export function toFileUrl(url) {
   return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-/** Supported OAuth2 providers — must match backend client registrations. */
+/** Supported OAuth2 providers - must match backend client registrations. */
 export const OAUTH_PROVIDERS = ['google', 'github', 'linkedin'];
 
 /**
  * Full browser-navigation URL that kicks off the backend OAuth2 redirect chain.
- * This is NEVER fetched — it's a multi-hop 302 chain through the identity
+ * This is NEVER fetched - it's a multi-hop 302 chain through the identity
  * provider, so it must be a real `window.location` navigation.
  */
 export function oauthAuthorizeUrl(provider) {
@@ -39,7 +39,7 @@ export function oauthAuthorizeUrl(provider) {
 }
 
 /**
- * OTP purpose constants — the serialized values of the backend `OtpPurpose`
+ * OTP purpose constants - the serialized values of the backend `OtpPurpose`
  * enum. Now that the DTOs type this field as the enum rather than a String,
  * any other value fails deserialization with a 400 instead of being accepted
  * and quietly mismatching, so these must stay exact.
@@ -58,7 +58,7 @@ export const OTP_LENGTH = 6;
 /**
  * Password bounds enforced server-side by
  * `SignUpRequestDto @Size(min = 8, max = 72)`. Mirrored here only so the user
- * sees the failure before a round trip — the backend remains the authority,
+ * sees the failure before a round trip - the backend remains the authority,
  * and its rejection is rendered on the field either way. 72 is the BCrypt
  * input limit, not an arbitrary cap.
  */
