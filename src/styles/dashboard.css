@@ -1,0 +1,76 @@
+/* ============================================
+   Dashboard - "Your CVs". Builds on .cv-grid / .cv-card / .cv-thumb in
+   mockui.css; everything new is scoped under .dash-*.
+   ============================================ */
+
+.container.dash { max-width: 1280px; padding-bottom: 2rem; }
+.dash-header { align-items: flex-end; }
+.dash-header-actions { display: flex; gap: 0.625rem; flex-wrap: wrap; }
+
+/* Stat strip */
+.dash-stats {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.625rem;
+  font-size: 0.8125rem; color: var(--fg-subtle); margin: -0.5rem 0 1.25rem;
+}
+.dash-stats b { color: var(--fg); font-weight: 700; }
+
+/* Toolbar */
+.dash-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.dash-filter { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--mk-border); box-shadow: var(--shadow-xs); border-radius: var(--radius-pill); }
+.dash-filter .segmented-btn { flex: 0 0 auto; padding: 0 1rem; border-radius: var(--radius-pill); min-height: 32px; }
+.dash-filter .segmented-btn[aria-pressed='true'] { background: var(--mk-primary-soft); box-shadow: none; }
+.dash-search { position: relative; flex: 0 1 320px; min-width: 0; }
+.dash-search svg {
+  position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; color: var(--fg-subtle); pointer-events: none;
+}
+.dash-search .input { padding-left: 2.375rem; border-radius: var(--radius-pill); }
+.dash-no-match { font-size: 0.875rem; color: var(--fg-subtle); margin-bottom: 1rem; }
+
+/* Grid: 3 / 2 / 1 */
+.dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Card - overflow visible so the ⋯ menu is not clipped; the thumb keeps the rounded top. */
+.dash-card { overflow: visible; position: relative; }
+.dash-card:focus-within { z-index: 3; }
+.dash-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.dash-card[aria-busy='true'] { opacity: 0.7; }
+.dash-thumb { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.dash-thumb-badge { position: absolute; top: 0.75rem; right: 0.75rem; z-index: 1; box-shadow: var(--shadow-xs); }
+.dash-card .cv-card-title { font-size: 1rem; line-height: 1.3; }
+.dash-card-actions { align-items: center; flex-wrap: nowrap; }
+.dash-card-actions .btn-icon { min-width: 32px; padding: 0.375rem; }
+.dash-spacer { flex: 1; }
+
+/* Empty state */
+.dash-empty {
+  text-align: center; padding: 3.5rem 1.5rem 4rem; margin-bottom: 4rem;
+  background: var(--surface); border: 1px solid var(--mk-border); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.dash-empty-art {
+  position: relative; width: 88px; height: 88px; margin: 0 auto 1.25rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--mk-gradient-soft); color: var(--mk-primary); box-shadow: inset 0 0 0 1px rgba(90, 77, 230, 0.12);
+}
+.dash-empty-art svg { width: 36px; height: 36px; }
+.dash-empty-art .dash-empty-spark { position: absolute; top: 12px; right: 10px; width: 18px; height: 18px; color: #7c4ddf; }
+.dash-empty h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.375rem; }
+.dash-empty p { color: var(--fg-subtle); font-size: 0.9375rem; }
+
+@media (max-width: 1024px) {
+  .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-header-actions { width: 100%; }
+  .dash-header-actions .btn { flex: 1; }
+  .dash-toolbar { flex-direction: column; align-items: stretch; }
+  .dash-filter { align-self: flex-start; }
+  .dash-search { flex: 1 1 auto; }
+  .dash-card .cv-card-new, .dash-grid .cv-card-new { min-height: 180px; }
+}
