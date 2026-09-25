@@ -2,46 +2,48 @@ import { FileDown, Target, Wallet } from 'lucide-react';
 
 import Brand from '@/components/mockui/Brand';
 
+const FEATURES = [
+  [FileDown, 'Pixel-perfect PDF export', 'The same HTML drives the preview and the export'],
+  [Target, 'CV match analysis', 'Keyword coverage, not gamified scores'],
+  [Wallet, 'Pay locally, once', 'Buy credits with eSewa or Khalti'],
+];
+
 /**
- * The gradient panel shared by every auth screen (sign in, sign up, OTP,
- * failure). Presentational only. `.auth-visual` hides it below 900px in
- * mockui.css, so the form panel takes the full width on phones.
+ * The indigo story panel shared by every auth screen (sign in, sign up, OTP,
+ * failure). Presentational only; `.au-visual` hides it below 900px
+ * (styles/auth.css), so the form column takes the full width on phones.
  */
 export default function AuthVisual() {
   return (
-    <div className="auth-visual">
-      <div className="auth-visual-content">
+    <aside className="au-visual" aria-label="About CVGen">
+      <div className="au-visual-content">
         <Brand onDark />
         <h2>
           Your CV should get you the interview.
           <br />
           Not rejected by a parser.
         </h2>
-        <p>
-          Most CVs are silently dropped before a human ever reads them. CVGen
-          helps you build machine-readable, keyword-smart resumes with
-          transparent analysis — so you know exactly where you stand.
+        <p className="au-visual-lead">
+          Most CVs are filtered out before a human ever reads them. CVGen helps
+          you build machine-readable, keyword-aware resumes with transparent
+          analysis, so you know exactly where you stand.
         </p>
 
-        <div className="auth-features">
-          {[
-            [FileDown, 'Pixel-perfect PDF export', 'Same HTML for preview and export'],
-            [Target, 'CV Match Analysis', 'Keyword coverage, not gamified scores'],
-            [Wallet, 'Local payments', 'eSewa, Khalti, ConnectIPS'],
-          ].map(([Icon, title, desc]) => (
-            <div key={title} className="auth-feature">
-              <div className="auth-feature-icon">
+        <ul className="au-features">
+          {FEATURES.map(([Icon, title, desc]) => (
+            <li key={title} className="au-feature">
+              <span className="au-feature-icon">
                 <Icon aria-hidden="true" />
-              </div>
+              </span>
               <div>
-                <div className="auth-feature-title">{title}</div>
-                <div className="auth-feature-desc">{desc}</div>
+                <div className="au-feature-title">{title}</div>
+                <div className="au-feature-desc">{desc}</div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-      <div className="auth-visual-footer">© 2026 CVGen · Texas International College</div>
-    </div>
+      <div className="au-visual-footer">© 2026 CVGen · Texas International College</div>
+    </aside>
   );
 }

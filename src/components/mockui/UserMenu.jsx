@@ -9,11 +9,11 @@ import { useAuth } from '@/context/AuthContext';
 import { isAdmin } from '@/auth/roles';
 
 /**
- * UserMenu — the nav avatar and the account menu behind it.
+ * UserMenu - the nav avatar and the account menu behind it.
  *
  * The avatar used to be a bare `onClick={logout}`, so the only thing a user
  * could do with their own account was destroy the session by accident. It is
- * now a menu button: profile, credits, sign out — and sign out is behind a
+ * now a menu button: profile, credits, sign out - and sign out is behind a
  * confirmation, since it is the one entry that throws away state. Admins also
  * get an "Admin console" entry (UI-only gate; see auth/roles.js).
  *
@@ -32,7 +32,7 @@ export default function UserMenu({ onOpenCredits }) {
 
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  // null | 'this' | 'everywhere' — which sign-out the confirmation is for.
+  // null | 'this' | 'everywhere' - which sign-out the confirmation is for.
   const [confirmSignOut, setConfirmSignOut] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
 

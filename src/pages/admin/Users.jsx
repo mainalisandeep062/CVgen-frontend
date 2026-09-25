@@ -49,7 +49,7 @@ function SortHeader({ field, label, sort, onSort, className }) {
 }
 
 /**
- * Admin Users — `GET /api/admin/users` with search, role/status filters,
+ * Admin Users - `GET /api/admin/users` with search, role/status filters,
  * sorting and paging.
  *
  * Filter state lives in the URL (?q=&role=&status=&page=&sort=) so the back
@@ -193,7 +193,7 @@ export default function Users() {
                       <td><Badge tone={statusBadge.tone}>{statusBadge.label}</Badge></td>
                       <td>
                         <div className="adm-badges">
-                          {methods.length === 0 ? <span className="adm-muted">—</span> : methods.map((method) => (
+                          {methods.length === 0 ? <span className="adm-muted">-</span> : methods.map((method) => (
                             <Badge key={method} tone="neutral" dot={false}>{method}</Badge>
                           ))}
                         </div>

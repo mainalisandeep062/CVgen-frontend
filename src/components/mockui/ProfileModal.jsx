@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { Camera } from 'lucide-react';
+
 import Modal from '@/components/mockui/Modal';
 import Avatar from '@/components/mockui/Avatar';
 import ProfilePictureModal from '@/components/mockui/ProfilePictureModal';
@@ -9,9 +11,9 @@ import { setAvatarUrl } from '@/auth/avatarStore';
 
 /** "2026-08-20T09:31:00" → "20 Aug 2026". Blank when the server sent nothing. */
 function formatJoined(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -20,7 +22,7 @@ function formatJoined(iso) {
 }
 
 /**
- * ProfileModal — account details plus the profile picture.
+ * ProfileModal - account details plus the profile picture.
  *
  * Details come from `GET /api/users/me`, not from the decoded JWT: the token is
  * a snapshot from issue time and carries neither `providers` nor the
@@ -29,7 +31,7 @@ function formatJoined(iso) {
  * something useful if the request fails.
  *
  * That same fetch carries `profilePictureUrl`, so it doubles as the seam that
- * feeds server truth into the avatar store — one request, not two. Changing the
+ * feeds server truth into the avatar store - one request, not two. Changing the
  * picture happens in ProfilePictureModal, which owns the whole picker.
  */
 export default function ProfileModal({ open, user, onClose }) {
@@ -61,7 +63,7 @@ export default function ProfileModal({ open, user, onClose }) {
   }, [open, loadProfile]);
 
   const name = profile?.name || user?.name || 'Your account';
-  const email = profile?.email || user?.email || '—';
+  const email = profile?.email || user?.email || '-';
   const providers = profile?.providers || [];
 
   return (
@@ -71,39 +73,37 @@ export default function ProfileModal({ open, user, onClose }) {
         onClose={onClose}
         title="Profile"
         footer={
-          <button className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
         }
       >
-        <div className="profile-photo-row">
+        <div className="profile-hero">
           <Avatar user={user} size={72} />
-          <div>
-            <div className="font-semibold text-base">{name}</div>
-            <div className="text-sm text-muted">{email}</div>
-            <div className="flex gap-2 mt-2">
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => setPictureOpen(true)}
-              >
-                Change picture
-              </button>
-            </div>
+          <div className="profile-hero-body">
+            <div className="profile-hero-name">{name}</div>
+            <div className="profile-hero-email">{email}</div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm mt-3"
+              onClick={() => setPictureOpen(true)}
+            >
+              <Camera aria-hidden="true" />
+              Change picture
+            </button>
           </div>
         </div>
 
-        <div className="divider" />
-
-        {loading && <div className="skeleton" style={{ height: 96 }} />}
+        {loading && <div className="skeleton mt-4" style={{ height: 120 }} />}
 
         {!loading && failed && (
-          <p className="text-sm text-muted">
-            Could not load your account details right now.
-          </p>
+          <div className="alert alert-warning mt-4" role="status">
+            <span>Could not load your account details right now.</span>
+          </div>
         )}
 
         {!loading && !failed && (
-          <dl className="profile-details">
+          <dl className="profile-details profile-card">
             <dt>Name</dt>
             <dd>{name}</dd>
 

@@ -13,6 +13,7 @@ import AuthFailure from '@/pages/AuthFailure';
 import Dashboard from '@/pages/Dashboard';
 import Builder from '@/pages/Builder';
 import Scoring from '@/pages/Scoring';
+import BillingReturn from '@/pages/BillingReturn';
 
 // The admin console is code-split: recharts and the admin screens only load
 // for someone who actually opens /admin. AdminLayout wraps its <Outlet/> in
@@ -27,7 +28,7 @@ const AdminNotifications = lazy(() => import('@/pages/admin/Notifications'));
 const AdminAudit = lazy(() => import('@/pages/admin/AuditLog'));
 
 /**
- * BootstrapSplash — shown while the one-shot /api/auth/refresh on app load is
+ * BootstrapSplash - shown while the one-shot /api/auth/refresh on app load is
  * still in flight. Route guards render this instead of deciding auth, so a valid
  * session surviving in the httpOnly refresh cookie is never bounced to /login
  * just because the in-memory access token hasn't been re-minted yet.
@@ -42,7 +43,7 @@ function BootstrapSplash() {
 }
 
 /**
- * ProtectedRoute — route guard requiring a non-expired session.
+ * ProtectedRoute - route guard requiring a non-expired session.
  * Waits for the auth bootstrap to settle, then passes only when a token exists
  * AND its `exp` claim is still in the future (both folded into
  * `isAuthenticated`). Otherwise redirects to /login.
@@ -59,7 +60,7 @@ function ProtectedRoute({ children }) {
 }
 
 /**
- * AdminRoute — ProtectedRoute plus a ROLE_ADMIN check on the decoded token.
+ * AdminRoute - ProtectedRoute plus a ROLE_ADMIN check on the decoded token.
  *
  * Same bootstrap wait as ProtectedRoute. Unauthenticated → /login; signed in
  * without ROLE_ADMIN → /dashboard. This is a UI gate only (see auth/roles.js):
@@ -81,7 +82,7 @@ function AdminRoute({ children }) {
   return children;
 }
 
-/** CatchAllRoute — sends unknown routes to the public landing page. */
+/** CatchAllRoute - sends unknown routes to the public landing page. */
 function CatchAllRoute() {
   const { bootstrapped } = useAuth();
   if (!bootstrapped) {
@@ -128,6 +129,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Scoring />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/billing/return/:gateway"
+        element={
+          <ProtectedRoute>
+            <BillingReturn />
           </ProtectedRoute>
         }
       />

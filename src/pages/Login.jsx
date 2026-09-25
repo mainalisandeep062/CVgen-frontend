@@ -4,11 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
-import AuthVisual from '@/components/AuthVisual';
+import AuthShell, { PasswordInput } from '@/components/AuthShell';
 import OAuthButtons from '@/components/OAuthButtons';
-import Brand from '@/components/mockui/Brand';
 import { useAuth } from '@/context/AuthContext';
 import { login as loginRequest } from '@/api/auth';
 import {
@@ -25,15 +24,24 @@ const schema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/** decodeURIComponent that never throws on a stray `%` in the query string. */
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
- * Login page — mock template's split-panel auth design (.auth-page), with the
- * REAL backend sign-in logic preserved unchanged:
+ * Login page - shared AuthShell split layout, with the REAL backend sign-in
+ * logic preserved unchanged:
  *   200 data:{accessToken}    trusted device, sign in directly
  *   202 data:{email, purpose} OTP challenge, go to the OTP screen
  *   401                       invalid credentials, inline on the password field
  *   400 error:[...]           validation failure, mapped onto the fields
  * OAuth buttons kick off the real backend /oauth2/authorization/{provider}
- * redirect chain (config.js) — the provider list in OAuthButtons stays driven
+ * redirect chain (config.js) - the provider list in OAuthButtons stays driven
  * by OAUTH_PROVIDERS in config.js as the source of truth.
  */
 export default function Login() {
@@ -66,7 +74,7 @@ export default function Login() {
       const data = unwrap(res);
 
       if (res.status === HTTP.OK && data?.accessToken) {
-        // Trusted device — OTP skipped.
+        // Trusted device - OTP skipped.
         login({ accessToken: data.accessToken });
         navigate('/dashboard', { replace: true });
         return;
@@ -107,68 +115,65 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-page">
-      <AuthVisual />
-
-      <div className="auth-form-panel">
-        <Brand className="auth-logo" />
-        <h1>Welcome back</h1>
-        <p className="auth-sub">Sign in to build, analyze, and export your CVs.</p>
-
-        {oauthError && (
-          <div role="alert" className="alert alert-danger mb-4">
-            <AlertCircle aria-hidden="true" />
-            <span>
-              {oauthError === 'exchange_failed'
-                ? 'Sign-in failed. Please try again.'
-                : decodeURIComponent(oauthError)}
-            </span>
-          </div>
-        )}
-
-        <OAuthButtons disabled={isSubmitting} />
-
-        <div className="auth-divider">or</div>
-
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <div className="form-group">
-            <label className="label" htmlFor="email">Email address</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              autoComplete="email"
-              placeholder="you@example.com"
-              aria-invalid={errors.email ? 'true' : undefined}
-              {...register('email')}
-            />
-            {errors.email && <p className="field-error">{errors.email.message}</p>}
-          </div>
-          <div className="form-group">
-            <label className="label" htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="input"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              aria-invalid={errors.password ? 'true' : undefined}
-              {...register('password')}
-            />
-            {errors.password && <p className="field-error">{errors.password.message}</p>}
-          </div>
-          <button type="submit" className="btn btn-primary btn-lg w-full mt-2" disabled={isSubmitting}>
-            {isSubmitting ? 'Signing in…' : 'Sign In with Email'}
-          </button>
-        </form>
-
-        <div className="auth-footer">
+    <AuthShell
+      title="Welcome back"
+      description="Sign in to build, analyze, and export your CVs."
+      footer={
+        <>
           Don&apos;t have an account?{' '}
           <Link to="/signup" className="text-link">
             Sign up
           </Link>
+        </>
+      }
+    >
+      {oauthError && (
+        <div role="alert" className="alert alert-danger">
+          <AlertCircle aria-hidden="true" />
+          <span>
+            {oauthError === 'exchange_failed'
+              ? 'Sign-in failed. Please try again.'
+              : safeDecode(oauthError)}
+          </span>
         </div>
-      </div>
-    </div>
+      )}
+
+      <OAuthButtons disabled={isSubmitting} />
+
+      <div className="au-divider">or</div>
+
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div className="form-group">
+          <label className="label" htmlFor="email">Email address</label>
+          <input
+            id="email"
+            type="email"
+            className="input"
+            autoComplete="email"
+            placeholder="you@example.com"
+            aria-invalid={errors.email ? 'true' : undefined}
+            aria-describedby={errors.email ? 'email-error' : undefined}
+            {...register('email')}
+          />
+          {errors.email && <p id="email-error" className="field-error">{errors.email.message}</p>}
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="password">Password</label>
+          <PasswordInput
+            id="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            aria-invalid={errors.password ? 'true' : undefined}
+            aria-describedby={errors.password ? 'password-error' : undefined}
+            {...register('password')}
+          />
+          {errors.password && <p id="password-error" className="field-error">{errors.password.message}</p>}
+        </div>
+        <button type="submit" className="btn btn-primary btn-lg au-submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="spin" aria-hidden="true" />}
+          {isSubmitting ? 'Signing in…' : 'Sign in with email'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

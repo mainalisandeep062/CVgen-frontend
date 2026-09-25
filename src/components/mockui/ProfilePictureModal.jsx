@@ -16,18 +16,18 @@ import {
 } from '@/api/profilePicture';
 
 /**
- * ProfilePictureModal — the "change picture" picker.
+ * ProfilePictureModal - the "change picture" picker.
  *
  * One call, `GET /api/users/me/profile-picture/options`, is the entire payload:
  * the current picture plus one tile per linked account that publishes an
  * avatar. An email/password-only account gets an empty `providerOptions` and
  * must still be able to upload, so the upload tile is unconditional and the
- * provider tiles are the optional part — not the other way round.
+ * provider tiles are the optional part - not the other way round.
  *
  * Every mutation answers with the new picture, so the avatar store is fed from
  * the response rather than from a guess, and the options are re-read afterwards
  * so the "Current" mark moves. Toast wording comes from the envelope's
- * `message` (localized server-side) — the local strings here are only fallbacks
+ * `message` (localized server-side) - the local strings here are only fallbacks
  * for a request that never reached the server.
  */
 export default function ProfilePictureModal({ open, onClose, onChanged }) {
@@ -137,6 +137,10 @@ export default function ProfilePictureModal({ open, onClose, onChanged }) {
         </>
       }
     >
+      <p className="picture-intro">
+        Your picture shows in the navigation bar and on your account.
+      </p>
+
       {loading && (
         <div className="picture-grid">
           <div className="skeleton" style={{ height: 116 }} />

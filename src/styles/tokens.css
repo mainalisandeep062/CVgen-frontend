@@ -1,18 +1,18 @@
 /* ============================================
-   CVGen design tokens — "soft" visual language
+   CVGen design tokens - "soft" visual language
    Calm lavender ground, indigo/violet primary, diffuse shadows,
    generous radii, pastel status tints.
    ============================================ */
 
 /*
- * NAMING RULE — read before adding a token.
+ * NAMING RULE - read before adding a token.
  *
  * Tokens are prefixed `--mk-` where the name would otherwise collide with a
  * shadcn/Tailwind token from index.css (--primary, --border, --accent, and by
  * extension --ring, --input, --muted, --card, --background …).
  *
  * That collision was not cosmetic. tailwind.config.js consumes those names as
- * bare HSL triplets — `hsl(var(--primary))` — while this file defines colours
+ * bare HSL triplets - `hsl(var(--primary))` - while this file defines colours
  * as hex. `hsl(#0f172a)` is invalid at computed-value time, which in CSS does
  * NOT fall back to the previous cascade winner: the property resets to its
  * initial value. So `hover:bg-primary/90` and `data-[state=checked]:bg-primary`
@@ -38,7 +38,7 @@
   --fg: #1e1b3a;
   --fg-muted: #4a4766;
   --fg-subtle: #6b6888;
-  --fg-faint: #8b88a6; /* decorative only — 3.4:1, never for body text */
+  --fg-faint: #8b88a6; /* decorative only - 3.4:1, never for body text */
 
   /* Lines */
   --mk-border: #ebe9f5;
@@ -82,7 +82,7 @@
   --radius-2xl: 28px;
   --radius-pill: 9999px;
 
-  /* Depth — layered, low-opacity, tinted with the ink colour */
+  /* Depth - layered, low-opacity, tinted with the ink colour */
   --shadow-xs: 0 1px 2px rgba(30, 27, 58, 0.04);
   --shadow-sm: 0 1px 2px rgba(30, 27, 58, 0.04), 0 2px 8px rgba(30, 27, 58, 0.04);
   --shadow-md: 0 2px 4px rgba(30, 27, 58, 0.03), 0 8px 24px rgba(30, 27, 58, 0.07);
@@ -90,7 +90,7 @@
   --shadow-primary: 0 4px 14px rgba(90, 77, 230, 0.28);
   --shadow-primary-lg: 0 8px 24px rgba(90, 77, 230, 0.34);
 
-  /* Focus — soft halo plus a solid inner ring so it stays visible on tints */
+  /* Focus - soft halo plus a solid inner ring so it stays visible on tints */
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px rgba(90, 77, 230, 0.6);
   --focus-halo: 0 0 0 4px rgba(90, 77, 230, 0.18);
 

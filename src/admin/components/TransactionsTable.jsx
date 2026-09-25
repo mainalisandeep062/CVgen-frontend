@@ -4,7 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import Badge from '@/admin/components/Badge';
 import { TRANSACTION_STATUS, TRANSACTION_TYPE } from '@/api/admin';
 import { formatDateTime, formatMoney, formatNumber, formatSigned, timeAgo } from '@/admin/format';
-import { txStatusInfo, txTypeInfo } from '@/admin/labels';
+import { paymentMethodLabel, txStatusInfo, txTypeInfo } from '@/admin/labels';
 
 /** Only a completed purchase can be refunded (contract: 409 otherwise). */
 function isRefundable(transaction) {
@@ -15,7 +15,7 @@ function isRefundable(transaction) {
 }
 
 /**
- * TransactionsTable — CreditTransaction rows.
+ * TransactionsTable - CreditTransaction rows.
  * `showUser` adds the user column (links to the user detail page);
  * `onRefund(tx)` adds a Refund action on refundable rows only.
  */
@@ -44,11 +44,11 @@ export default function TransactionsTable({ items, showUser = true, onRefund }) 
           {items.map((tx) => {
             const type = txTypeInfo(tx.type);
             const status = txStatusInfo(tx.status);
-            const detail = [tx.packName, tx.paymentMethod, tx.reference].filter(Boolean).join(' · ');
+            const detail = [tx.packName, paymentMethodLabel(tx.paymentMethod), tx.reference].filter(Boolean).join(' · ');
             return (
               <tr key={tx.id}>
                 <td title={formatDateTime(tx.createdAt)}>
-                  <div className="font-medium">{timeAgo(tx.createdAt, '—')}</div>
+                  <div className="font-medium">{timeAgo(tx.createdAt, '-')}</div>
                   <div className="adm-muted text-xs">{formatDateTime(tx.createdAt)}</div>
                 </td>
                 {showUser && (
@@ -65,12 +65,12 @@ export default function TransactionsTable({ items, showUser = true, onRefund }) 
                   {formatSigned(tx.credits)}
                 </td>
                 <td className="num">{formatNumber(tx.balanceAfter)}</td>
-                <td className="num">{tx.amountMinor ? formatMoney(tx.amountMinor, tx.currency) : '—'}</td>
+                <td className="num">{tx.amountMinor ? formatMoney(tx.amountMinor, tx.currency) : '-'}</td>
                 <td style={{ maxWidth: 260 }}>
                   {detail && <div className="adm-truncate">{detail}</div>}
                   {tx.note && <div className="adm-muted text-xs adm-truncate" title={tx.note}>“{tx.note}”</div>}
                   {tx.createdByEmail && <div className="adm-muted text-xs adm-truncate">by {tx.createdByEmail}</div>}
-                  {!detail && !tx.note && !tx.createdByEmail && <span className="adm-muted">—</span>}
+                  {!detail && !tx.note && !tx.createdByEmail && <span className="adm-muted">-</span>}
                 </td>
                 {onRefund && (
                   <td className="actions">

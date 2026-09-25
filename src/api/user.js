@@ -15,12 +15,12 @@ import { unwrap } from '@/api/response';
  * "linkedin"); it is empty for an account that only has a local password.
  * `createdAt` is an ISO-8601 local date-time string.
  *
- * `profilePictureUrl` is null when the user has no picture — including for a
+ * `profilePictureUrl` is null when the user has no picture - including for a
  * few seconds right after a first-time OAuth signup, because the backend seeds
  * the provider picture asynchronously. Callers render initials and re-read
  * rather than blocking on it (see auth/avatarStore).
  *
- * This is server truth, unlike the JWT claims AuthContext decodes — the token
+ * This is server truth, unlike the JWT claims AuthContext decodes - the token
  * is a snapshot from issue time and carries neither the linked identities nor
  * the email-verified flag.
  */

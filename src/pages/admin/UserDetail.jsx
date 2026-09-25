@@ -48,7 +48,7 @@ function validateCreditForm(form, balance) {
   } else if (amount < 1 || amount > LIMITS.creditsAbs) {
     errors.amount = `Enter between 1 and ${LIMITS.creditsAbs.toLocaleString('en-US')} credits.`;
   } else if (form.mode === 'deduct' && amount > balance) {
-    errors.amount = `This user only has ${formatNumber(balance)} credits — a balance can't go below zero.`;
+    errors.amount = `This user only has ${formatNumber(balance)} credits. A balance can't go below zero.`;
   }
   const note = form.note.trim();
   if (!note) errors.note = 'A note is required so the change is explained in the audit log.';
@@ -57,7 +57,7 @@ function validateCreditForm(form, balance) {
 }
 
 /**
- * Admin User detail — `GET /api/admin/users/{id}` plus the account actions.
+ * Admin User detail - `GET /api/admin/users/{id}` plus the account actions.
  *
  *   role / status   PATCH  /api/admin/users/{id}          behind a confirmation
  *   credits         POST   /api/admin/users/{id}/credits  grant (+) or deduct (−), note required
@@ -285,7 +285,7 @@ export default function UserDetail() {
         <dl className="adm-kv">
           <div><dt>Joined</dt><dd title={formatDateTime(detail.createdAt)}>{formatDate(detail.createdAt)}</dd></div>
           <div><dt>Last login</dt><dd title={formatDateTime(detail.lastLoginAt)}>{timeAgo(detail.lastLoginAt)}</dd></div>
-          <div><dt>Sign-in</dt><dd>{methods.length ? methods.join(', ') : '—'}</dd></div>
+          <div><dt>Sign-in</dt><dd>{methods.length ? methods.join(', ') : '-'}</dd></div>
           <div><dt>CVs</dt><dd>{formatNumber(detail.cvCount)}</dd></div>
           <div><dt>User ID</dt><dd className="adm-mono adm-truncate" title={detail.userId}>{detail.userId}</dd></div>
         </dl>
@@ -324,7 +324,7 @@ export default function UserDetail() {
               {isSelf && (
                 <p className="adm-hint">
                   <Info aria-hidden="true" />
-                  This is your own account. Ask another admin to change your role or status — the server refuses self-changes.
+                  This is your own account. Ask another admin to change your role or status. The server refuses self-changes.
                 </p>
               )}
             </div>
@@ -366,7 +366,7 @@ export default function UserDetail() {
                         <div className="min-w-0 flex-1">
                           <div className="adm-list-title adm-truncate">{cv.title}</div>
                           <div className="adm-list-sub">
-                            {cv.templateKey} · {cv.locale} · edited {timeAgo(cv.updatedAt, '—')}
+                            {cv.templateKey} · {cv.locale} · edited {timeAgo(cv.updatedAt, '-')}
                           </div>
                         </div>
                         <Badge tone={badge.tone}>{badge.label}</Badge>

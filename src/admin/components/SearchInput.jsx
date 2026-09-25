@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 
 /**
- * SearchInput — debounced text filter.
+ * SearchInput - debounced text filter.
  *
  * Keeps its own draft so typing is instant, and calls `onChange` only after
  * `delay` ms of quiet. If the parent resets `value` (e.g. "clear filters"), the

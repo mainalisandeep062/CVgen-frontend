@@ -60,7 +60,7 @@ import {
   pluralise,
   parseMajorToMinor,
 } from '@/admin/format';
-import { txStatusInfo, txTypeInfo } from '@/admin/labels';
+import { paymentMethodInfo, txStatusInfo, txTypeInfo } from '@/admin/labels';
 
 const TABS = [
   { id: 'overview', label: 'Overview', Icon: BarChart3 },
@@ -222,13 +222,25 @@ function OverviewTab() {
                       </tr>
                     </thead>
                     <tbody>
-                      {methods.map((method) => (
+                      {methods.map((method) => {
+                        const info = paymentMethodInfo(method.method);
+                        return (
                         <tr key={method.method ?? 'unknown'}>
-                          <td className="font-medium">{method.method || 'Unknown'}</td>
+                          <td>
+                            {info.label ? (
+                              <span className={`adm-method tone-${info.tone}`}>
+                                <span className="adm-method-mark" aria-hidden="true">{info.label.charAt(0)}</span>
+                                {info.label}
+                              </span>
+                            ) : (
+                              <span className="adm-muted">Unknown</span>
+                            )}
+                          </td>
                           <td className="num">{formatNumber(method.purchases)}</td>
                           <td className="num">{formatMoney(method.revenueMinor, currency)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -379,11 +391,11 @@ function TransactionsTab() {
           <>
             <div className="kv-panel">
               <div className="kv-row"><span className="font-semibold">User</span><span>{refund.userEmail}</span></div>
-              <div className="kv-row"><span className="font-semibold">Pack</span><span>{refund.packName || '—'}</span></div>
+              <div className="kv-row"><span className="font-semibold">Pack</span><span>{refund.packName || '-'}</span></div>
               <div className="kv-row"><span className="font-semibold">Credits</span><span>{formatNumber(refund.credits)} will be reversed</span></div>
               <div className="kv-row"><span className="font-semibold">Amount</span><span>{formatMoney(refund.amountMinor, refund.currency)}</span></div>
             </div>
-            <Field label="Note" htmlFor="refund-note" hint="Optional — stored with the refund and the audit log." counter={`${refundNote.length}/${LIMITS.refundNote}`}>
+            <Field label="Note" htmlFor="refund-note" hint="Optional. Stored with the refund and the audit log." counter={`${refundNote.length}/${LIMITS.refundNote}`}>
               <textarea
                 id="refund-note"
                 className="textarea"
@@ -646,7 +658,7 @@ function PacksTab() {
                     </td>
                     <td className="num">{formatNumber(pack.credits)}</td>
                     <td className="num">{formatMoney(pack.priceMinor, pack.currency)}</td>
-                    <td className="num">{pack.credits > 0 ? formatMoney(Math.round(pack.priceMinor / pack.credits), pack.currency) : '—'}</td>
+                    <td className="num">{pack.credits > 0 ? formatMoney(Math.round(pack.priceMinor / pack.credits), pack.currency) : '-'}</td>
                     <td><Badge tone={pack.active ? 'success' : 'neutral'}>{pack.active ? 'Active' : 'Inactive'}</Badge></td>
                     <td className="num">{formatNumber(pack.purchases)}</td>
                     <td className="num">{pack.sortOrder}</td>
@@ -683,7 +695,7 @@ function PacksTab() {
       <ConfirmModal
         open={Boolean(deleteTarget)}
         title="Delete this credit pack?"
-        message={deleteTarget ? `“${deleteTarget.name}” will be removed. Packs already referenced by transactions can't be deleted — deactivate them instead.` : ''}
+        message={deleteTarget ? `“${deleteTarget.name}” will be removed. Packs already referenced by transactions can't be deleted. Deactivate them instead.` : ''}
         confirmLabel="Delete pack"
         destructive
         busy={deleteBusy}
@@ -698,7 +710,7 @@ function PacksTab() {
 /* ------------------------------------------------------------------ */
 
 /**
- * Admin Billing — three tabs over the billing endpoints:
+ * Admin Billing - three tabs over the billing endpoints:
  *
  *   Overview      GET  /api/admin/billing/summary?days=N
  *   Transactions  GET  /api/admin/billing/transactions  + refund action

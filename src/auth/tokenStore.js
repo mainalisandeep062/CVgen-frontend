@@ -1,7 +1,7 @@
 /**
  * Access-token storage, shared between the axios layer and AuthContext.
  *
- * The access token lives ONLY in memory (a module-level variable) — it is never
+ * The access token lives ONLY in memory (a module-level variable) - it is never
  * written to sessionStorage/localStorage, so it is not readable by injected
  * scripts across a reload and it does not survive a page refresh. Durable
  * session identity is carried by the httpOnly refresh cookie instead: on every
@@ -14,10 +14,10 @@
  * reactivity. (Being in-memory, the token is inherently per-tab; there is no
  * cross-tab `storage` event to mirror.)
  *
- * The backend only ever returns an access token in the JSON body — wrapped in
+ * The backend only ever returns an access token in the JSON body - wrapped in
  * the standard envelope, so it reads as `data.data.accessToken` (see
  * api/response.js). The refresh token and the trusted-device remember-me token
- * are httpOnly cookies the browser holds and JS cannot read — so there is
+ * are httpOnly cookies the browser holds and JS cannot read - so there is
  * intentionally no entry for either here.
  */
 

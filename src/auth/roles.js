@@ -9,7 +9,7 @@
  * time and only changes on the next refresh).
  *
  * Claims (JwtTokenProvider): `id` is the user id, `authorities` is a JSON array
- * of strings — USER → ["ROLE_USER"], ADMIN → ["ROLE_USER", "ROLE_ADMIN"]. A
+ * of strings - USER → ["ROLE_USER"], ADMIN → ["ROLE_USER", "ROLE_ADMIN"]. A
  * comma-separated string is tolerated too, since the backend parser accepts one.
  */
 

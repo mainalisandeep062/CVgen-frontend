@@ -55,8 +55,14 @@ const AUDIT_TONE = {
   NOTIFICATION_SENT: 'info',
 };
 
+/** Payment gateways as the backend stores them on purchases → brand spelling. */
+const PAYMENT_METHOD = {
+  ESEWA: { label: 'eSewa', tone: 'success' },
+  KHALTI: { label: 'Khalti', tone: 'primary' },
+};
+
 function lookup(map, value) {
-  return map[value] ?? { label: humanizeEnum(value) || '—', tone: 'neutral' };
+  return map[value] ?? { label: humanizeEnum(value) || '-', tone: 'neutral' };
 }
 
 export const roleInfo = (value) => lookup(ROLE, value);
@@ -66,6 +72,13 @@ export const txTypeInfo = (value) => lookup(TX_TYPE, value);
 export const txStatusInfo = (value) => lookup(TX_STATUS, value);
 export const levelInfo = (value) => lookup(LEVEL, value);
 export const auditActionInfo = (value) => ({
-  label: humanizeEnum(value) || '—',
+  label: humanizeEnum(value) || '-',
   tone: AUDIT_TONE[value] ?? 'neutral',
 });
+
+/** "ESEWA" → { label: 'eSewa', tone: 'success' }; case-insensitive, unknown values humanized. */
+export const paymentMethodInfo = (value) => {
+  if (!value) return { label: '', tone: 'neutral' };
+  return PAYMENT_METHOD[String(value).toUpperCase()] ?? { label: humanizeEnum(value), tone: 'neutral' };
+};
+export const paymentMethodLabel = (value) => paymentMethodInfo(value).label;

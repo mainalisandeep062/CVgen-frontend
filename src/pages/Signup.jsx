@@ -6,12 +6,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import AuthShell from '@/components/AuthShell';
+import AuthShell, { PasswordInput } from '@/components/AuthShell';
 import OAuthButtons from '@/components/OAuthButtons';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { signup as signupRequest } from '@/api/auth';
 import {
@@ -42,8 +38,44 @@ const schema = z.object({
     ),
 });
 
+const STRENGTH_LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+
 /**
- * Signup page — local email/password registration.
+ * Purely visual password strength: length plus character classes, bucketed
+ * into 0–4 bars. It never blocks submission - the zod schema (mirroring the
+ * backend's @Size) is the only real rule.
+ */
+function passwordStrength(pw) {
+  if (!pw) return 0;
+  let points = 0;
+  if (pw.length >= PASSWORD_MIN_LENGTH) points += 1;
+  if (pw.length >= 12) points += 1;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) points += 1;
+  if (/\d/.test(pw)) points += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) points += 1;
+  if (pw.length < PASSWORD_MIN_LENGTH) return 1;
+  return Math.max(1, Math.min(4, points));
+}
+
+function StrengthMeter({ password }) {
+  const level = passwordStrength(password);
+  return (
+    <div className="au-strength" data-level={level}>
+      <div className="au-strength-bars" aria-hidden="true">
+        {[1, 2, 3, 4].map((n) => (
+          <span key={n} className={`au-strength-bar${n <= level ? ' on' : ''}`} />
+        ))}
+      </div>
+      <span className="au-strength-label" aria-live="polite">
+        {level ? STRENGTH_LABELS[level] : ''}
+        <span className="sr-only">{level ? ' password' : ''}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Signup page - local email/password registration.
  *
  * Backend /api/auth/signup outcomes:
  *   202 data:{email, purpose:"SIGNUP"}  code mailed, go to the OTP screen
@@ -68,11 +100,14 @@ export default function Signup() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { name: '', email: '', password: '' },
   });
+
+  const password = watch('password');
 
   const onSubmit = async (values) => {
     try {
@@ -118,71 +153,74 @@ export default function Signup() {
   return (
     <AuthShell
       title="Create account"
-      description="Start building your CV with CVgen"
+      description="Start building your CV with CVGen"
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
+          <Link to="/login" className="text-link">
             Sign in
           </Link>
         </>
       }
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div className="form-group">
+          <label className="label" htmlFor="name">Name</label>
+          <input
             id="name"
             type="text"
+            className="input"
             autoComplete="name"
             placeholder="Jane Doe"
+            aria-invalid={errors.name ? 'true' : undefined}
+            aria-describedby={errors.name ? 'name-error' : undefined}
             {...register('name')}
           />
-          {errors.name && (
-            <p className="text-sm text-destructive">{errors.name.message}</p>
-          )}
+          {errors.name && <p id="name-error" className="field-error">{errors.name.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
+        <div className="form-group">
+          <label className="label" htmlFor="email">Email</label>
+          <input
             id="email"
             type="email"
+            className="input"
             autoComplete="email"
             placeholder="you@example.com"
+            aria-invalid={errors.email ? 'true' : undefined}
+            aria-describedby={errors.email ? 'email-error' : undefined}
             {...register('email')}
           />
-          {errors.email && (
-            <p className="text-sm text-destructive">{errors.email.message}</p>
-          )}
+          {errors.email && <p id="email-error" className="field-error">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
+        <div className="form-group">
+          <label className="label" htmlFor="password">Password</label>
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder="Create a password"
+            aria-invalid={errors.password ? 'true' : undefined}
+            aria-describedby={errors.password ? 'password-error' : 'password-hint'}
             {...register('password')}
           />
-          {errors.password && (
-            <p className="text-sm text-destructive">{errors.password.message}</p>
+          <StrengthMeter password={password} />
+          {errors.password ? (
+            <p id="password-error" className="field-error">{errors.password.message}</p>
+          ) : (
+            <p id="password-hint" className="field-hint">
+              At least {PASSWORD_MIN_LENGTH} characters
+            </p>
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="animate-spin" />}
-          Create account
-        </Button>
+        <button type="submit" className="btn btn-primary btn-lg au-submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="spin" aria-hidden="true" />}
+          {isSubmitting ? 'Creating account…' : 'Create account'}
+        </button>
       </form>
 
-      <div className="relative">
-        <Separator />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs uppercase text-muted-foreground">
-          or
-        </span>
-      </div>
+      <div className="au-divider">or</div>
 
       <OAuthButtons disabled={isSubmitting} />
     </AuthShell>

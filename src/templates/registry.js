@@ -4,8 +4,8 @@ import ClassicTemplate from '@/templates/ClassicTemplate';
  * Template key -> preview component.
  *
  * The keys mirror the backend registry (enum CvTemplate, served by
- * GET /api/templates). The server is the authority on which keys exist — it
- * rejects anything else with a 400 — so the picker lists what the API returns,
+ * GET /api/templates). The server is the authority on which keys exist - it
+ * rejects anything else with a 400 - so the picker lists what the API returns,
  * and this map only decides how each one is drawn. A key the server knows but
  * this build has no component for falls back to Classic rather than a blank
  * preview.

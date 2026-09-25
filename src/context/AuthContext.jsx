@@ -17,22 +17,22 @@ import {
 } from '@/auth/tokenStore';
 
 /**
- * AuthContext — the single source of auth state for the app.
+ * AuthContext - the single source of auth state for the app.
  *
  * The access token is kept only in memory (via tokenStore) and decoded
  * client-side with jwt-decode purely to read display claims and the `exp`
- * expiry — the signature is verified by the backend, not here, which is
+ * expiry - the signature is verified by the backend, not here, which is
  * correct: the frontend only needs the claims, not to trust them.
  *
  * Because the access token is in-memory, it is gone after any page reload. The
  * durable session identity is the httpOnly refresh cookie, so on mount this
  * provider runs a ONE-SHOT bootstrap: it calls /api/auth/refresh once to try to
  * mint a fresh access token from that cookie. Until that call settles,
- * `bootstrapped` is false and route guards must wait — otherwise a reload would
+ * `bootstrapped` is false and route guards must wait - otherwise a reload would
  * momentarily look unauthenticated and bounce a valid session to /login before
  * the refresh could complete.
  *
- * The refresh token is NOT handled in JS — it's an httpOnly cookie the browser
+ * The refresh token is NOT handled in JS - it's an httpOnly cookie the browser
  * holds. Ongoing token renewal happens transparently in the axios 401
  * interceptor; this bootstrap reuses that same single-flight refresh.
  */
@@ -69,7 +69,7 @@ export function AuthProvider({ children }) {
     let cancelled = false;
     refreshAccessToken()
       .catch(() => {
-        // No valid refresh cookie — stay logged out. Not an error to surface.
+        // No valid refresh cookie - stay logged out. Not an error to surface.
       })
       .finally(() => {
         if (!cancelled) setBootstrapped(true);
@@ -91,7 +91,7 @@ export function AuthProvider({ children }) {
   /**
    * Clear the session. Calls the backend so it can expire the httpOnly refresh
    * cookie and invalidate any server-side session left over from an OAuth2
-   * login. The trusted-device remember-me cookie is intentionally kept — it is
+   * login. The trusted-device remember-me cookie is intentionally kept - it is
    * what lets the next sign-in from this device skip the OTP for its full TTL.
    * The response is 200 with the standard envelope; nothing is read from it.
    * In-memory state is cleared regardless of whether the call succeeds, so
@@ -105,7 +105,7 @@ export function AuthProvider({ children }) {
     try {
       await (everywhere ? logoutAllRequest() : logoutRequest());
     } catch {
-      // Best-effort — the cookie may already be gone or the server unreachable.
+      // Best-effort - the cookie may already be gone or the server unreachable.
     }
     clearAccessToken();
     setUser(null);

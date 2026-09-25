@@ -12,7 +12,7 @@ import { formatDateTime, humanizeEnum, timeAgo } from '@/admin/format';
 import { auditActionInfo } from '@/admin/labels';
 
 /**
- * Admin Audit log — `GET /api/admin/audit-logs?action=&page=&size=`.
+ * Admin Audit log - `GET /api/admin/audit-logs?action=&page=&size=`.
  *
  * A timeline of what admins did: who, what, to which target and when. Entries
  * that carry a `details` object expose it as pretty-printed JSON behind a
@@ -112,7 +112,7 @@ export default function AuditLog() {
                             )}
                           </span>
                         )}
-                        <span title={formatDateTime(entry.createdAt)}>{timeAgo(entry.createdAt, '—')}</span>
+                        <span title={formatDateTime(entry.createdAt)}>{timeAgo(entry.createdAt, '-')}</span>
                       </div>
                     </div>
                     <Badge tone={info.tone}>{info.label}</Badge>

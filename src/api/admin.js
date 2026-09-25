@@ -3,7 +3,7 @@ import { unwrap } from '@/api/response';
 
 /**
  * Admin console endpoints. Every path here requires ROLE_ADMIN server-side
- * (403 `error.forbidden` otherwise — the backend also re-checks the DB per
+ * (403 `error.forbidden` otherwise - the backend also re-checks the DB per
  * request, so a demoted admin fails even with a still-valid token).
  *
  * Source of truth: the shared admin API contract (backend ⇄ frontend).

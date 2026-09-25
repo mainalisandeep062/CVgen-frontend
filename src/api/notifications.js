@@ -11,7 +11,7 @@ import { unwrap } from '@/api/response';
  *
  * Visible = addressed to me, or a broadcast created at/after my account was
  * created. Newest first. `level` is INFO | SUCCESS | WARNING | CRITICAL.
- * `link` is null, an in-app path starting with "/", or an "https://" URL — the
+ * `link` is null, an in-app path starting with "/", or an "https://" URL - the
  * backend validates that on create, but the bell re-checks before following it.
  */
 

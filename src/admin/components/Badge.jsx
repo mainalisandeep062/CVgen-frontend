@@ -1,5 +1,5 @@
 /**
- * Badge — pastel pill. `tone`: neutral | primary | success | warning | danger | info.
+ * Badge - pastel pill. `tone`: neutral | primary | success | warning | danger | info.
  * The dot is decorative; the text always carries the meaning.
  */
 export default function Badge({ tone = 'neutral', dot = true, children, title }) {

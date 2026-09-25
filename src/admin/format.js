@@ -19,7 +19,7 @@ export function parseTimestamp(value) {
 /** 60000 → "NPR 600.00". Minor units (paisa) in, never floats on the wire. */
 export function formatMoney(minor, currency = 'NPR') {
   const value = Number(minor);
-  if (minor === null || minor === undefined || !Number.isFinite(value)) return '—';
+  if (minor === null || minor === undefined || !Number.isFinite(value)) return '-';
   const major = (value / 100).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -36,7 +36,7 @@ export function formatMoneyCompact(minor) {
 
 export function formatNumber(value) {
   const number = Number(value);
-  if (value === null || value === undefined || !Number.isFinite(number)) return '—';
+  if (value === null || value === undefined || !Number.isFinite(number)) return '-';
   return number.toLocaleString('en-US');
 }
 
@@ -59,13 +59,13 @@ export function formatSigned(value) {
 
 export function formatDate(value) {
   const ts = parseTimestamp(value);
-  if (ts === null) return '—';
+  if (ts === null) return '-';
   return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function formatDateTime(value) {
   const ts = parseTimestamp(value);
-  if (ts === null) return '—';
+  if (ts === null) return '-';
   return new Date(ts).toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',

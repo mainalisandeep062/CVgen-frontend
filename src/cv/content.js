@@ -11,7 +11,7 @@
  *   }
  *
  * Section order is array order, and `type` decides how a section is drawn.
- * The editor works on a flatter model instead — one field per form section —
+ * The editor works on a flatter model instead - one field per form section -
  * so every Builder input stays a plain controlled value:
  *
  *   {
@@ -84,7 +84,7 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-/** Empty editor model — what a brand-new CV looks like before anything is typed. */
+/** Empty editor model - what a brand-new CV looks like before anything is typed. */
 export function emptyModel() {
   return toEditorModel(null);
 }
@@ -145,7 +145,7 @@ export function toEditorModel(document) {
 
 /**
  * Keep whatever the previous item carried beyond the fields this editor owns,
- * matched by id — a newer client's extra item fields are not ours to drop.
+ * matched by id - a newer client's extra item fields are not ours to drop.
  */
 function mergeItems(previousItems, nextItems) {
   const byId = new Map(previousItems.map((item) => [item.id, item]));
@@ -296,7 +296,7 @@ export function relativeTime(ts) {
   return `${days} days ago`;
 }
 
-/** Flatten an editor model into plain text — used by the ATS "raw" view and analysis. */
+/** Flatten an editor model into plain text - used by the ATS "raw" view and analysis. */
 export function cvToPlainText(cv) {
   const lines = [];
   const p = cv.personal;
@@ -330,4 +330,94 @@ export function cvToPlainText(cv) {
     cv.projects.forEach((pr) => lines.push(pr.name, pr.description, ''));
   }
   return lines.join('\n').trim();
+}
+
+/**
+ * GitHub repository (GET /api/cvs/import/github/{username}) -> editor project
+ * item. The homepage wins over the repo URL when there is one - it is what a
+ * reader would want to open - and the language is appended to the description.
+ */
+export function repoToProject(repo) {
+  const description = [text(repo?.description).trim(), repo?.language ? `Built with ${repo.language}.` : '']
+    .filter(Boolean)
+    .join(' ');
+  return {
+    id: newId(),
+    name: text(repo?.name),
+    link: text(repo?.homepage).trim() || text(repo?.url),
+    description,
+  };
+}
+
+/** Append GitHub repositories to an editor model's Projects, skipping names already listed. */
+export function appendRepoProjects(model, repos) {
+  const existing = new Set(model.projects.map((project) => project.name.trim().toLowerCase()));
+  const added = list(repos)
+    .filter((repo) => !existing.has(text(repo?.name).trim().toLowerCase()))
+    .map(repoToProject);
+  return { ...model, projects: [...model.projects, ...added] };
+}
+
+/** Section completion flags for the builder sidebar and progress ring. */
+export function sectionCompletion(model) {
+  return {
+    personal: Boolean(model.personal.fullName.trim() && model.personal.email.trim()),
+    summary: Boolean(model.summary.trim()),
+    experience: model.experience.length > 0,
+    education: model.education.length > 0,
+    skills: model.skills.technical.length > 0,
+    projects: model.projects.length > 0,
+  };
+}
+
+/**
+ * Per-section progress for the builder sidebar: "done" when the section is
+ * complete, "partial" when something is typed but not enough to count,
+ * "empty" otherwise.
+ */
+export function sectionStatus(model) {
+  const complete = sectionCompletion(model);
+  const p = model.personal;
+  const started = {
+    personal: Object.values(p).some((v) => String(v).trim()),
+    summary: Boolean(model.summary.trim()),
+    experience: model.experience.length > 0,
+    education: model.education.length > 0,
+    skills: model.skills.technical.length + model.skills.soft.length > 0 || Boolean(model.skills.languages.trim()),
+    projects: model.projects.length > 0,
+  };
+  const status = {};
+  Object.keys(complete).forEach((key) => {
+    status[key] = complete[key] ? 'done' : started[key] ? 'partial' : 'empty';
+  });
+  return status;
+}
+
+/**
+ * Structural checks an applicant tracking system cares about, computed from
+ * the editor model: the share of passed checks is the sidebar's health score.
+ * No job description is involved - that is what the match analysis is for.
+ */
+export function atsHealth(model) {
+  const p = model.personal;
+  const checks = [
+    Boolean(p.fullName.trim()),
+    Boolean(p.email.trim()),
+    Boolean(p.phone.trim()),
+    Boolean(p.title.trim()),
+    Boolean(model.summary.trim()),
+    model.experience.length > 0,
+    model.experience.length > 0 && model.experience.every((e) => e.role.trim() && e.company.trim() && e.start),
+    model.experience.some((e) => /\d/.test(e.description)),
+    model.education.length > 0,
+    model.skills.technical.length >= 3,
+  ];
+  const passed = checks.filter(Boolean).length;
+  return Math.round((passed / checks.length) * 100);
+}
+
+/** Words a reader would see on the page. */
+export function wordCount(model) {
+  const text = cvToPlainText(model);
+  return text ? text.split(/\s+/).filter(Boolean).length : 0;
 }

@@ -2,7 +2,7 @@
  * Chart colours for recharts (SVG attributes, so plain hex rather than CSS vars).
  *
  * Categorical order validated with the dataviz palette checker (light surface):
- * adjacent CVD ΔE 9.1, normal-vision ΔE 22.9 — all hard gates pass. Slots 3 and 4
+ * adjacent CVD ΔE 9.1, normal-vision ΔE 22.9 - all hard gates pass. Slots 3 and 4
  * (aqua, yellow) sit below 3:1 against white, so every chart that uses them
  * also shows the values as text (legend rows with numbers).
  * Slot order is fixed: colour follows the series, never its rank.
@@ -18,7 +18,7 @@ export const CHART = {
   surface: '#ffffff',
 };
 
-/** Status colours for CV status split — reserved, and always shown with a label. */
+/** Status colours for CV status split - reserved, and always shown with a label. */
 export const CV_STATUS_COLOR = {
   READY: '#1f9d5c',
   DRAFT: '#d98a0b',

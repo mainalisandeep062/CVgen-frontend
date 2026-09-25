@@ -16,11 +16,11 @@ function initials(name) {
 }
 
 /**
- * Avatar — the user's picture, or their initials when there is none.
+ * Avatar - the user's picture, or their initials when there is none.
  *
  * The picture is a plain <img src>. That is deliberate: the avatar URL is
  * public, unauthenticated and immutable by design, so it must NOT carry an
- * Authorization header — adding one would turn it into a cross-origin
+ * Authorization header - adding one would turn it into a cross-origin
  * preflight the avatar endpoint does not answer, and the image would simply
  * never load. It also means the browser caches it for free, which is safe
  * precisely because a new picture mints a new URL rather than replacing one.

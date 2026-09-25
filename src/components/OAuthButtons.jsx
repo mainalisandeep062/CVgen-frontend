@@ -1,11 +1,10 @@
-import { Button } from '@/components/ui/button';
 import { oauthAuthorizeUrl } from '@/config';
 
 /**
  * OAuth provider buttons (Google / GitHub / LinkedIn).
  *
  * Each button performs a FULL browser navigation to the backend's
- * /oauth2/authorization/{provider} endpoint — never a fetch/axios call. That
+ * /oauth2/authorization/{provider} endpoint - never a fetch/axios call. That
  * URL starts a multi-hop 302 redirect chain through the identity provider,
  * which only works as a real top-level navigation.
  */
@@ -49,19 +48,18 @@ export default function OAuthButtons({ disabled = false }) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="au-oauth">
       {PROVIDERS.map(({ id, label, Icon }) => (
-        <Button
+        <button
           key={id}
           type="button"
-          variant="outline"
-          className="w-full"
+          className="btn btn-outline au-oauth-btn"
           disabled={disabled}
           onClick={() => startOAuth(id)}
         >
           <Icon />
           {label}
-        </Button>
+        </button>
       ))}
     </div>
   );

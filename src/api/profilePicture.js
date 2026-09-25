@@ -5,7 +5,7 @@ import { unwrap } from '@/api/response';
  * Profile-picture endpoints (UserProfilePictureController).
  *
  * Every response is the GlobalApiResponse envelope, so payloads come out of
- * `data.data` via unwrap() and the user-facing wording out of `message` — the
+ * `data.data` via unwrap() and the user-facing wording out of `message` - the
  * backend already localized it, so never replace it with hardcoded English.
  * The mutations therefore return the raw axios response rather than the
  * unwrapped payload: call sites need BOTH the new picture (for the avatar) and
@@ -13,7 +13,7 @@ import { unwrap } from '@/api/response';
  *
  * The picture URL itself is public, immutable and cacheable: picking a
  * different picture mints a new fileId and so a new URL. Always re-read the URL
- * from the response after a change — never cache-bust the old one.
+ * from the response after a change - never cache-bust the old one.
  */
 
 /** Server limit (MultipartProperties / the 400 the controller answers with). */
@@ -34,7 +34,7 @@ export const PROFILE_PICTURE_ACCEPT_ATTRIBUTE =
 /**
  * Pre-flight the same two rules the server enforces, so an obviously bad file
  * fails instantly instead of after a 2 MB upload. The server stays the
- * authority — its 400 message is surfaced verbatim when one slips through.
+ * authority - its 400 message is surfaced verbatim when one slips through.
  *
  * @returns {string|null} a reason to show the user, or null when the file is fine
  */
@@ -44,7 +44,7 @@ export function validateProfilePicture(file) {
     return 'Pick a JPEG, PNG, WebP or GIF image.';
   }
   if (file.size > PROFILE_PICTURE_MAX_BYTES) {
-    return 'That image is over 2 MB — pick a smaller one.';
+    return 'That image is over 2 MB. Pick a smaller one.';
   }
   return null;
 }
@@ -56,7 +56,7 @@ export function validateProfilePicture(file) {
  *     providerOptions: [{ identityId, provider, avatarUrl, selected }] }
  *
  * `providerOptions` is one entry per linked account that publishes an avatar,
- * and is EMPTY for an email/password-only account — the modal must still work
+ * and is EMPTY for an email/password-only account - the modal must still work
  * with upload as its only option. `avatarUrl` points at the provider's CDN and
  * is for the thumbnail alone; it is not what gets stored.
  */
@@ -90,7 +90,7 @@ export function uploadProfilePicture(file) {
   return api.post('/api/users/me/profile-picture', form);
 }
 
-/** Drop the current picture. data: null — the user falls back to initials. */
+/** Drop the current picture. data: null - the user falls back to initials. */
 export function deleteProfilePicture() {
   return api.delete('/api/users/me/profile-picture');
 }

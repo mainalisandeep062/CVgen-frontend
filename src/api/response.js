@@ -1,7 +1,7 @@
 /**
  * Helpers for the backend's single response envelope.
  *
- * Every endpoint — success or failure, controller or security filter — now
+ * Every endpoint - success or failure, controller or security filter - now
  * answers with `GlobalApiResponse`:
  *
  *   { status: boolean, message: string, data: T | null, error?: string[] }
@@ -18,7 +18,7 @@
  *     is now carried by the HTTP status code (see HTTP below) and the
  *     human-facing wording by `message`, which the backend resolves from
  *     `messages.properties` for the caller's locale. That means the message is
- *     the localized, user-safe text — surface it directly rather than
+ *     the localized, user-safe text - surface it directly rather than
  *     hardcoding an English copy that will drift.
  */
 
@@ -80,7 +80,7 @@ export function fieldErrors(error) {
  *
  * @param {unknown} error axios rejection
  * @param {(name: string, error: object) => void} setError react-hook-form setError
- * @param {string[]} formFields fields this form actually renders — anything the
+ * @param {string[]} formFields fields this form actually renders - anything the
  *   backend complains about that isn't here has no input to attach to, so it
  *   must stay unhandled and be surfaced as a toast by the caller instead.
  * @returns {boolean} whether at least one message was attached
