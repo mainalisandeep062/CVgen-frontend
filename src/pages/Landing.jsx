@@ -142,9 +142,9 @@ function HeroMockup() {
             <ShieldCheck /> ATS safe
           </span>
         </div>
-        <div className="lp-sheet-name">Aayush Shrestha</div>
+        <div className="lp-sheet-name">Sandeep Mainali</div>
         <div className="lp-sheet-role">Senior Full-Stack Engineer</div>
-        <div className="lp-sheet-contact">Kathmandu, Nepal · +977 9801234567 · github.com/aayush</div>
+        <div className="lp-sheet-contact">Kathmandu, Nepal · +977 9801234567 · github.com/mainalisandeep062</div>
         <div className="lp-sheet-h">Professional summary</div>
         <p className="lp-sheet-p">
           Full-stack engineer with 5+ years building distributed fintech APIs and resilient microservices.
