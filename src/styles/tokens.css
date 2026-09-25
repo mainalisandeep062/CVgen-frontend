@@ -1,0 +1,113 @@
+/* ============================================
+   CVGen design tokens — "soft" visual language
+   Calm lavender ground, indigo/violet primary, diffuse shadows,
+   generous radii, pastel status tints.
+   ============================================ */
+
+/*
+ * NAMING RULE — read before adding a token.
+ *
+ * Tokens are prefixed `--mk-` where the name would otherwise collide with a
+ * shadcn/Tailwind token from index.css (--primary, --border, --accent, and by
+ * extension --ring, --input, --muted, --card, --background …).
+ *
+ * That collision was not cosmetic. tailwind.config.js consumes those names as
+ * bare HSL triplets — `hsl(var(--primary))` — while this file defines colours
+ * as hex. `hsl(#0f172a)` is invalid at computed-value time, which in CSS does
+ * NOT fall back to the previous cascade winner: the property resets to its
+ * initial value. So `hover:bg-primary/90` and `data-[state=checked]:bg-primary`
+ * both resolved to `background-color: transparent`, making the Verify button
+ * vanish on hover and the remember-me checkbox show no checked state at all.
+ *
+ * So: NEVER define --primary / --border / --accent (or any other index.css name)
+ * here. Keep new tokens `--mk-`-prefixed, or out of index.css's namespace
+ * entirely. The shadcn HSL tokens in index.css are tuned separately to match
+ * this palette.
+ *
+ * Contrast (WCAG AA, checked): --fg-subtle on --surface 5.3:1, on --bg 4.9:1;
+ * white on --mk-primary 5.8:1; every status text colour on its tint >= 4.8:1.
+ */
+:root {
+  /* Surfaces */
+  --bg: #f6f5fb;
+  --surface: #ffffff;
+  --surface-2: #fbfaff;
+  --surface-sunken: #f1effa;
+
+  /* Ink */
+  --fg: #1e1b3a;
+  --fg-muted: #4a4766;
+  --fg-subtle: #6b6888;
+  --fg-faint: #8b88a6; /* decorative only — 3.4:1, never for body text */
+
+  /* Lines */
+  --mk-border: #ebe9f5;
+  --border-strong: #d9d6ea;
+
+  /* Brand */
+  --mk-primary: #5a4de6;
+  --mk-primary-hover: #4a3dd6;
+  --mk-primary-strong: #3f33c2;
+  --mk-primary-soft: #efedff;
+  --mk-primary-soft-fg: #4338ca;
+  --mk-gradient: linear-gradient(135deg, #6a5cf0 0%, #5a4de6 45%, #7c4ddf 100%);
+  --mk-gradient-hover: linear-gradient(135deg, #5a4de6 0%, #4a3dd6 45%, #6c3fd0 100%);
+  --mk-gradient-soft: linear-gradient(135deg, #f1efff 0%, #f6efff 50%, #eef4ff 100%);
+  --primary-fg: #ffffff;
+
+  /* Neutral fills */
+  --mk-accent: #f3f2fb;
+  --accent-hover: #e9e6f8;
+
+  /* Status: text / tint / hairline */
+  --success: #147a48;
+  --success-bg: #e8f7ef;
+  --success-border: #bfe8d2;
+  --warning: #9a5b06;
+  --warning-bg: #fdf3e2;
+  --warning-border: #f6dcae;
+  --danger: #c0263a;
+  --danger-bg: #fdecee;
+  --danger-border: #f7c9d0;
+  --info: #1f5fbf;
+  --info-bg: #e9f1fe;
+  --info-border: #c5dafb;
+
+  /* Shape */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Depth — layered, low-opacity, tinted with the ink colour */
+  --shadow-xs: 0 1px 2px rgba(30, 27, 58, 0.04);
+  --shadow-sm: 0 1px 2px rgba(30, 27, 58, 0.04), 0 2px 8px rgba(30, 27, 58, 0.04);
+  --shadow-md: 0 2px 4px rgba(30, 27, 58, 0.03), 0 8px 24px rgba(30, 27, 58, 0.07);
+  --shadow-lg: 0 4px 10px rgba(30, 27, 58, 0.04), 0 18px 44px rgba(30, 27, 58, 0.12);
+  --shadow-primary: 0 4px 14px rgba(90, 77, 230, 0.28);
+  --shadow-primary-lg: 0 8px 24px rgba(90, 77, 230, 0.34);
+
+  /* Focus — soft halo plus a solid inner ring so it stays visible on tints */
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px rgba(90, 77, 230, 0.6);
+  --focus-halo: 0 0 0 4px rgba(90, 77, 230, 0.18);
+
+  /* Type */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 180ms;
+  --transition: all var(--dur) var(--ease);
+
+  /* Layout */
+  --nav-h: 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}

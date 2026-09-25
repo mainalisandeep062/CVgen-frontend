@@ -1,34 +1,26 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import AuthVisual from '@/components/AuthVisual';
+import Brand from '@/components/mockui/Brand';
 
 /**
- * Centered card layout shared by the auth screens (login / signup / OTP /
- * failure). Presentational only.
+ * Layout shared by the auth screens (signup / OTP / failure). Same split as
+ * the sign-in page — gradient panel on the left, form on the right — so the
+ * sign-in ↔ sign-up toggle does not jump between layouts.
+ *
+ * Presentational only: the shadcn inputs inside pick up the palette through
+ * the HSL tokens in index.css.
  */
 export default function AuthShell({ title, description, children, footer }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-center text-2xl">{title}</CardTitle>
-          {description && (
-            <CardDescription className="text-center">
-              {description}
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">{children}</CardContent>
-        {footer && (
-          <div className="px-6 pb-6 text-center text-sm text-muted-foreground">
-            {footer}
-          </div>
-        )}
-      </Card>
+    <div className="auth-page">
+      <AuthVisual />
+
+      <div className="auth-form-panel">
+        <Brand className="auth-logo" />
+        <h1>{title}</h1>
+        {description && <p className="auth-sub">{description}</p>}
+        <div className="auth-card-body">{children}</div>
+        {footer && <div className="auth-footer">{footer}</div>}
+      </div>
     </div>
   );
 }

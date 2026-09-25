@@ -1,80 +1,93 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import Modal from '@/components/mockui/Modal';
 import { showToast } from '@/components/mockui/toast';
-import {
-  CREDIT_PACKS,
-  PAYMENT_METHODS,
-  purchaseCredits,
-} from '@/mock/credits';
+import { apiMessage } from '@/api/response';
+import { formatPrice, listCreditPacks } from '@/api/billing';
 
 /**
- * CreditsModal — purchase flow from the mock template, backed by the mock
- * credits service (localStorage wallet). The payment step is SIMULATED: no
- * eSewa/Khalti/ConnectIPS redirect exists server-side yet, so confirming
- * settles the pack instantly and toasts the outcome.
+ * CreditsModal — the credit packs, read from GET /api/billing/packs.
+ *
+ * THERE IS DELIBERATELY NO BUY BUTTON. No payment gateway is wired up, so the
+ * only honest options were to hide the prices or to show them and say how
+ * credits are actually obtained today (an admin grant). A "Pay" button that
+ * settled instantly — what this modal used to do against the localStorage mock
+ * — would hand out free credits the moment the balance became real.
+ *
+ * When a gateway lands, the flow is: POST a purchase intent, redirect to the
+ * gateway, and let its server-verified callback create the PURCHASE
+ * transaction. The balance then refreshes through `cvgen:credits-changed`.
  */
-export default function CreditsModal({ open, onClose, onPurchased }) {
-  const [selectedPack, setSelectedPack] = useState('pack-15');
-  const [method, setMethod] = useState('eSewa');
+export default function CreditsModal({ open, onClose }) {
+  const [packs, setPacks] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const pack = CREDIT_PACKS.find((p) => p.id === selectedPack);
-
-  const handlePay = () => {
-    // MOCK: simulate the gateway redirect + settlement.
-    showToast(`Redirecting to ${method}… (simulated)`);
-    setTimeout(() => {
-      const balance = purchaseCredits(selectedPack);
-      showToast(`Payment successful — balance: ${balance} credits`);
-      onPurchased?.(balance);
-    }, 900);
-    onClose();
-  };
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    listCreditPacks()
+      .then((list) => {
+        if (!cancelled) setPacks(Array.isArray(list) ? list : []);
+      })
+      .catch((error) => {
+        if (!cancelled) showToast(apiMessage(error, 'Could not load credit packs.'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Purchase Credits"
+      title="Credits"
       footer={
-        <>
-          <button className="btn btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn btn-primary" onClick={handlePay}>
-            Pay NPR {pack?.priceNpr.toLocaleString()}
-          </button>
-        </>
+        <button type="button" className="btn btn-primary" onClick={onClose}>
+          Close
+        </button>
       }
     >
-      <p className="text-muted text-sm mb-4">
+      <p className="text-muted text-sm mb-6">
         Credits unlock premium templates and AI enhancements. No subscription
         required.
       </p>
-      <div className="credit-grid mb-4">
-        {CREDIT_PACKS.map((p) => (
-          <div
-            key={p.id}
-            className={`credit-pack${selectedPack === p.id ? ' selected' : ''}`}
-            onClick={() => setSelectedPack(p.id)}
-          >
-            {p.best && <div className="pack-best">Best Value</div>}
-            <div className="pack-credits">{p.credits}</div>
-            <div className="pack-price">NPR {p.priceNpr.toLocaleString()}</div>
-          </div>
-        ))}
-      </div>
-      <div className="font-medium text-sm mb-2">Payment Method</div>
-      <div className="flex gap-2">
-        {PAYMENT_METHODS.map((m) => (
-          <button
-            key={m}
-            className={`btn flex-1 text-sm ${method === m ? 'btn-secondary' : 'btn-outline'}`}
-            onClick={() => setMethod(m)}
-          >
-            {m}
-          </button>
-        ))}
+
+      {loading && packs.length === 0 && (
+        <p className="text-muted text-sm">Loading packs…</p>
+      )}
+
+      {!loading && packs.length === 0 && (
+        <p className="text-muted text-sm">No credit packs are available yet.</p>
+      )}
+
+      {packs.length > 0 && (
+        <div className="credit-grid mb-6">
+          {packs.map((pack) => (
+            <div
+              key={pack.id}
+              className={`credit-pack${pack.highlighted ? ' selected' : ''}`}
+            >
+              {pack.highlighted && <span className="pack-best">Best value</span>}
+              <div className="pack-credits">{pack.credits}</div>
+              <div className="pack-credits-label">credits</div>
+              <div className="pack-price">
+                {formatPrice(pack.priceMinor, pack.currency)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="alert alert-info" role="note">
+        <span>
+          Online payment isn&apos;t available yet. Ask an administrator to add
+          credits to your account.
+        </span>
       </div>
     </Modal>
   );
