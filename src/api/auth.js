@@ -3,10 +3,10 @@ import api from '@/api/axios';
 /**
  * Thin wrappers over the backend auth contract (LocalAuthController +
  * AuthController). All calls go through the shared `api` instance so
- * withCredentials is applied — required for the httpOnly refresh cookie and the
+ * withCredentials is applied - required for the httpOnly refresh cookie and the
  * trusted-device cookie to be sent and set.
  *
- * Every response — success or failure — is the GlobalApiResponse envelope
+ * Every response - success or failure - is the GlobalApiResponse envelope
  * described in api/response.js. The old outcome strings ("OTP_SENT",
  * "INVALID_CREDENTIALS", …) no longer exist: outcomes are HTTP status codes and
  * wording comes from the localized `message` field.
@@ -43,10 +43,10 @@ import api from '@/api/axios';
  *                                                     token, unlike logout.
  *
  * `purpose` is now a backend enum (OtpPurpose), so only the exact strings
- * "SIGNUP" and "LOGIN" deserialize — anything else is a 400, not a silent
+ * "SIGNUP" and "LOGIN" deserialize - anything else is a 400, not a silent
  * mismatch. Send OTP_PURPOSE from config, never a hand-written literal.
  *
- * `rememberMe` belongs to `verify` alone — it is asked on the OTP screen, for both
+ * `rememberMe` belongs to `verify` alone - it is asked on the OTP screen, for both
  * purposes, and only that request can act on it. `login` no longer accepts it (the
  * backend DTO dropped the field), so passing it anywhere else is a no-op.
  */

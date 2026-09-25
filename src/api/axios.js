@@ -11,7 +11,7 @@ import {
 /**
  * Shared axios instance for authenticated API requests.
  *
- * withCredentials:true is REQUIRED, not optional — the backend issues the
+ * withCredentials:true is REQUIRED, not optional - the backend issues the
  * refresh token and the trusted-device token as httpOnly cookies and its CORS
  * config runs with allowCredentials. Without this flag the browser silently
  * drops those cookies and both the /refresh flow and the skip-OTP
@@ -43,12 +43,12 @@ let refreshPromise = null;
 /**
  * Mint a fresh access token from the httpOnly refresh cookie and store it.
  * Exported so the app-load bootstrap (AuthContext) can reuse the exact same
- * single-flight call the 401 interceptor uses — a bootstrap refresh racing an
+ * single-flight call the 401 interceptor uses - a bootstrap refresh racing an
  * early 401 will therefore share one in-flight request, not fire two. Rejects
  * if there is no valid refresh cookie; callers treat that as "logged out".
  *
  * The response is the standard envelope, so the token sits at `data.data`
- * (see api/response.js) — reading `data.accessToken` here silently yields
+ * (see api/response.js) - reading `data.accessToken` here silently yields
  * undefined and logs every session out on load.
  */
 export function refreshAccessToken() {
@@ -75,7 +75,7 @@ export function refreshAccessToken() {
 /**
  * Endpoints that are 401-able as a NORMAL outcome rather than as an expired
  * session. Since the backend cleanup, a wrong email/password answers 401
- * (it used to be 400) — if that fell through to the refresh-and-retry branch
+ * (it used to be 400) - if that fell through to the refresh-and-retry branch
  * below, a failed sign-in would trigger a bogus refresh, clear auth and
  * hard-navigate to /login, destroying the form and the error the user needs to
  * see. None of these calls carry an access token in the first place, so a
@@ -94,8 +94,8 @@ const UNAUTHENTICATED_ENDPOINTS = [
 /**
  * On 401, attempt ONE refresh (POST /api/auth/refresh reads the httpOnly
  * refresh cookie, rotates it, returns a fresh access token) and retry the
- * original request once. If refresh fails — expired, rotated or missing
- * cookie — clear auth and bounce to /login.
+ * original request once. If refresh fails - expired, rotated or missing
+ * cookie - clear auth and bounce to /login.
  *
  * The `_retry` guard and the endpoint list prevent an infinite 401 loop.
  */
