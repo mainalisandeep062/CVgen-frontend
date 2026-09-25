@@ -1,0 +1,128 @@
+/* ===== Signed-in shell & account overlays (TopNav, menus, modals, billing return) ===== */
+
+/* Nav: a touch more air, pill for the balance number */
+.topnav .credit-pill { font-variant-numeric: tabular-nums; }
+
+/* User menu */
+.user-menu-panel { border-radius: var(--radius-xl); padding: 0.5rem; min-width: 264px; }
+.user-menu-header {
+  background: var(--mk-gradient-soft); border-radius: var(--radius-lg);
+  padding: 0.75rem; margin-bottom: 0.25rem;
+}
+.user-menu-email { max-width: 180px; }
+
+/* Notifications */
+.notif-panel { border-radius: var(--radius-xl); }
+.notif-header { border-bottom: 1px solid var(--mk-border); padding-bottom: 0.75rem; }
+.notif-list { padding-top: 0.5rem; }
+.notif-item.unread { background: var(--mk-primary-soft); }
+.notif-item.unread:hover { background: #e7e4ff; }
+.notif-dot { box-shadow: 0 0 0 3px var(--surface); }
+
+/* Profile modal */
+.profile-hero {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 1.25rem; border-radius: var(--radius-xl); background: var(--mk-gradient-soft);
+  border: 1px solid var(--mk-border);
+}
+.profile-hero .avatar { box-shadow: 0 0 0 4px var(--surface), var(--shadow-md); }
+.profile-hero-body { min-width: 0; flex: 1; }
+.profile-hero-name { font-family: var(--font-display); font-weight: 800; font-size: 1.125rem; letter-spacing: -0.02em; word-break: break-word; }
+.profile-hero-email { font-size: 0.8125rem; color: var(--fg-subtle); word-break: break-all; }
+.profile-card {
+  margin-top: 1rem; padding: 1rem 1.125rem; border: 1px solid var(--mk-border);
+  border-radius: var(--radius-lg); background: var(--surface);
+}
+.profile-card .keyword-pill { padding: 0.125rem 0.5rem; font-size: 0.6875rem; }
+
+/* Picture modal */
+.picture-intro { font-size: 0.8125rem; color: var(--fg-subtle); margin-bottom: 1rem; }
+.picture-tile { border-radius: var(--radius-xl); }
+
+/* ===== Buy credits modal ===== */
+.buy-balance {
+  display: flex; align-items: center; gap: 0.875rem; padding: 1rem;
+  background: var(--mk-gradient-soft); border: 1px solid var(--mk-border);
+  border-radius: var(--radius-lg); margin-bottom: 1.25rem;
+}
+.buy-balance-value { font-family: var(--font-display); font-weight: 800; font-size: 1.0625rem; letter-spacing: -0.02em; }
+.buy-section-label {
+  font-size: 0.6875rem; font-weight: 700; color: var(--fg-subtle); text-transform: uppercase;
+  letter-spacing: 0.06em; margin: 0 0 0.75rem;
+}
+.buy-pack-grid { margin-top: 0.25rem; margin-bottom: 1.25rem; padding-top: 0.5rem; }
+.buy-pack-grid .credit-pack:disabled { cursor: not-allowed; opacity: 0.7; transform: none; }
+.buy-pack-name { font-size: 0.6875rem; color: var(--fg-subtle); margin-top: 0.25rem; }
+.buy-check {
+  position: absolute; top: 0.5rem; right: 0.5rem; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--mk-primary); color: #fff; display: inline-flex; align-items: center; justify-content: center;
+}
+.buy-check svg { width: 12px; height: 12px; }
+
+.buy-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+.buy-method {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;
+  padding: 0.875rem 2.5rem 0.875rem 1rem; border: 1.5px solid var(--mk-border); border-radius: var(--radius-lg);
+  background: var(--surface); font: inherit; color: var(--fg); text-align: left; cursor: pointer;
+  transition: var(--transition);
+}
+.buy-method:hover:not(:disabled) { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.buy-method:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.buy-method:disabled { cursor: not-allowed; opacity: 0.7; }
+.buy-method.selected { border-color: var(--mk-primary); background: var(--mk-primary-soft); box-shadow: 0 0 0 3px rgba(90, 77, 230, 0.14); }
+.buy-method-mark { font-family: var(--font-display); font-weight: 800; font-size: 1.0625rem; letter-spacing: -0.02em; }
+/* Gateway wordmark colours (brand identification, AA on white/tint). */
+.buy-method-mark.esewa { color: #2e7d32; }
+.buy-method-mark.khalti { color: #5c2d91; }
+.buy-method-hint { font-size: 0.75rem; color: var(--fg-subtle); }
+.buy-radio {
+  position: absolute; top: 50%; right: 1rem; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface);
+}
+.buy-method.selected .buy-radio { border-color: var(--mk-primary); box-shadow: inset 0 0 0 3px var(--surface); background: var(--mk-primary); }
+
+/* ===== Billing return page ===== */
+.billing-return {
+  min-height: calc(100vh - var(--nav-h)); display: flex; align-items: center; justify-content: center;
+  padding-top: 2.5rem; padding-bottom: 2.5rem;
+}
+.billing-return-card {
+  width: 100%; max-width: 460px; padding: 2.5rem 2rem; text-align: center;
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-md);
+  display: flex; flex-direction: column; align-items: center;
+}
+.billing-return-spinner { margin-bottom: 1.25rem; }
+.billing-return-icon {
+  width: 64px; height: 64px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 1.25rem;
+}
+.billing-return-icon svg { width: 30px; height: 30px; }
+.billing-return-icon.tone-success { background: var(--success-bg); color: var(--success); box-shadow: 0 0 0 8px rgba(20, 122, 72, 0.06); }
+.billing-return-icon.tone-warning { background: var(--warning-bg); color: var(--warning); box-shadow: 0 0 0 8px rgba(154, 91, 6, 0.06); }
+.billing-return-icon.tone-danger { background: var(--danger-bg); color: var(--danger); box-shadow: 0 0 0 8px rgba(192, 38, 58, 0.06); }
+.billing-return-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+.billing-return-text { font-size: 0.875rem; color: var(--fg-muted); line-height: 1.6; margin-top: 0.5rem; }
+.billing-return-balance {
+  margin-top: 1.25rem; padding: 0.5rem 1rem; border-radius: var(--radius-pill);
+  background: var(--mk-primary-soft); color: var(--mk-primary-soft-fg); font-size: 0.875rem;
+}
+.billing-return-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin-top: 1.75rem; width: 100%; }
+
+@media (max-width: 560px) {
+  .buy-methods { grid-template-columns: 1fr; }
+  .buy-balance { padding: 0.875rem; }
+  .billing-return-card { padding: 2rem 1.25rem; }
+  .billing-return-actions .btn { flex: 1 1 100%; justify-content: center; }
+  .user-menu-panel { min-width: min(264px, calc(100vw - 2rem)); }
+  .profile-hero { padding: 1rem; }
+}
+
+/* Market tag beside the logo in the signed-in nav. */
+.nav-brand { display: inline-flex; align-items: center; gap: 0.625rem; }
+.nav-market {
+  font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.125rem 0.5rem; border-radius: var(--radius-pill);
+  background: var(--mk-primary-soft); color: var(--mk-primary-soft-fg);
+}
+@media (max-width: 640px) { .nav-market { display: none; } }
+.topnav-inner.topnav-fluid { max-width: none; padding-left: 1.5rem; padding-right: 1.5rem; }

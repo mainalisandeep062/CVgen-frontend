@@ -19,7 +19,7 @@ const LEVEL_LABEL = {
   CRITICAL: 'Critical',
 };
 
-/** In-app path. "//host" is protocol-relative, i.e. external — never navigate to it. */
+/** In-app path. "//host" is protocol-relative, i.e. external - never navigate to it. */
 function isInternalLink(link) {
   return typeof link === 'string' && link.startsWith('/') && !link.startsWith('//');
 }
@@ -29,7 +29,7 @@ function isExternalLink(link) {
 }
 
 /**
- * NotificationBell — unread badge + dropdown of the user's latest notifications.
+ * NotificationBell - unread badge + dropdown of the user's latest notifications.
  *
  * Polls `GET /api/notifications?size=10` every 60s while mounted, and only
  * while the tab is visible: `visibilitychange` stops the interval when the tab
