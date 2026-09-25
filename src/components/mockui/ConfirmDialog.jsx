@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 /**
  * ConfirmDialog — a small yes/no modal for actions that should not fire on a
@@ -8,6 +10,10 @@ import { useEffect } from 'react';
  * reusing that component, because a confirmation deliberately has no ✕ in the
  * header and no dismiss-by-anything-but-Cancel affordance beyond the overlay
  * and Escape. Cancel is autofocused so a blind Enter is never destructive.
+ *
+ * Portalled to <body> for the same reason Modal.jsx is: a `position: fixed`
+ * overlay nested inside an element with `backdrop-filter` is positioned
+ * against that element, not the viewport.
  */
 export default function ConfirmDialog({
   open,
@@ -31,7 +37,7 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay"
       onClick={(e) => {
@@ -44,14 +50,16 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-label={title}
       >
-        <div className="modal-header">
-          <div className="modal-title">{title}</div>
-        </div>
-        <div className="modal-body">
-          <p className="text-sm text-muted">{message}</p>
+        <div className="modal-body" style={{ paddingTop: '1.5rem' }}>
+          <div className={`icon-chip confirm-icon ${destructive ? 'tone-danger' : ''}`} aria-hidden="true">
+            {destructive ? <AlertTriangle /> : <HelpCircle />}
+          </div>
+          <div className="modal-title mb-2">{title}</div>
+          <p className="confirm-message">{message}</p>
         </div>
         <div className="modal-footer">
           <button
+            type="button"
             className="btn btn-ghost"
             onClick={onCancel}
             disabled={busy}
@@ -60,7 +68,8 @@ export default function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            className={`btn ${destructive ? 'btn-destructive' : 'btn-primary'}`}
+            type="button"
+            className={`btn ${destructive ? 'btn-danger-solid' : 'btn-primary'}`}
             onClick={onConfirm}
             disabled={busy}
           >
@@ -68,6 +77,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

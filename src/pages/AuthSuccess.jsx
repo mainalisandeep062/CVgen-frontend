@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { exchangeOAuthCode } from '@/api/auth';
@@ -69,15 +68,13 @@ export default function AuthSuccess() {
   }, [searchParams, navigate, login]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
-          {status === 'exchanging'
-            ? 'Completing sign-in…'
-            : 'Something went wrong. Redirecting…'}
-        </p>
-      </div>
+    <div className="splash" role="status" aria-live="polite">
+      <div className="splash-spinner" aria-hidden="true" />
+      <p className="splash-text">
+        {status === 'exchanging'
+          ? 'Completing sign-in…'
+          : 'Something went wrong. Redirecting…'}
+      </p>
     </div>
   );
 }

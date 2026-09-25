@@ -4,8 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
 
+import AuthVisual from '@/components/AuthVisual';
 import OAuthButtons from '@/components/OAuthButtons';
+import Brand from '@/components/mockui/Brand';
 import { useAuth } from '@/context/AuthContext';
 import { login as loginRequest } from '@/api/auth';
 import {
@@ -105,59 +108,21 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <div className="auth-visual">
-        <div className="auth-visual-content">
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.02em' }}>
-            CVGen
-          </div>
-          <h2>
-            Your CV should get you the interview.
-            <br />
-            Not rejected by a parser.
-          </h2>
-          <p>
-            Most CVs are silently dropped before a human ever reads them. CVGen
-            helps you build machine-readable, keyword-smart resumes with
-            transparent analysis — so you know exactly where you stand.
-          </p>
-
-          <div style={{ marginTop: '3rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {[
-              ['📄', 'Pixel-perfect PDF export', 'Same HTML for preview and export'],
-              ['🎯', 'CV Match Analysis', 'Keyword coverage, not gamified scores'],
-              ['💳', 'Local payments', 'eSewa, Khalti, ConnectIPS'],
-            ].map(([icon, title, desc]) => (
-              <div key={title} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
-                  {icon}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{title}</div>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="auth-visual-footer">© 2026 CVGen · Texas International College</div>
-      </div>
+      <AuthVisual />
 
       <div className="auth-form-panel">
-        <Link to="/" className="auth-logo">
-          CVGen
-        </Link>
+        <Brand className="auth-logo" />
         <h1>Welcome back</h1>
         <p className="auth-sub">Sign in to build, analyze, and export your CVs.</p>
 
         {oauthError && (
-          <div
-            role="alert"
-            className="p-3 rounded-md mb-4 text-sm"
-            style={{ background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid #fecaca' }}
-          >
-            {oauthError === 'exchange_failed'
-              ? 'Sign-in failed. Please try again.'
-              : decodeURIComponent(oauthError)}
+          <div role="alert" className="alert alert-danger mb-4">
+            <AlertCircle aria-hidden="true" />
+            <span>
+              {oauthError === 'exchange_failed'
+                ? 'Sign-in failed. Please try again.'
+                : decodeURIComponent(oauthError)}
+            </span>
           </div>
         )}
 
@@ -174,11 +139,10 @@ export default function Login() {
               className="input"
               autoComplete="email"
               placeholder="you@example.com"
+              aria-invalid={errors.email ? 'true' : undefined}
               {...register('email')}
             />
-            {errors.email && (
-              <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.email.message}</p>
-            )}
+            {errors.email && <p className="field-error">{errors.email.message}</p>}
           </div>
           <div className="form-group">
             <label className="label" htmlFor="password">Password</label>
@@ -188,20 +152,19 @@ export default function Login() {
               className="input"
               autoComplete="current-password"
               placeholder="••••••••"
+              aria-invalid={errors.password ? 'true' : undefined}
               {...register('password')}
             />
-            {errors.password && (
-              <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{errors.password.message}</p>
-            )}
+            {errors.password && <p className="field-error">{errors.password.message}</p>}
           </div>
-          <button type="submit" className="btn btn-primary w-full" style={{ marginTop: '0.5rem' }} disabled={isSubmitting}>
+          <button type="submit" className="btn btn-primary btn-lg w-full mt-2" disabled={isSubmitting}>
             {isSubmitting ? 'Signing in…' : 'Sign In with Email'}
           </button>
         </form>
 
         <div className="auth-footer">
           Don&apos;t have an account?{' '}
-          <Link to="/signup" style={{ color: 'var(--fg)', fontWeight: 500 }}>
+          <Link to="/signup" className="text-link">
             Sign up
           </Link>
         </div>

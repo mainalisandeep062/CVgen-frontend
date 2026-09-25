@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Coins, LayoutGrid, LogOut, MonitorSmartphone, ShieldCheck, User } from 'lucide-react';
 
 import Avatar from '@/components/mockui/Avatar';
 import ProfileModal from '@/components/mockui/ProfileModal';
 import ConfirmDialog from '@/components/mockui/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
+import { isAdmin } from '@/auth/roles';
 
 /**
  * UserMenu — the nav avatar and the account menu behind it.
@@ -12,7 +14,8 @@ import { useAuth } from '@/context/AuthContext';
  * The avatar used to be a bare `onClick={logout}`, so the only thing a user
  * could do with their own account was destroy the session by accident. It is
  * now a menu button: profile, credits, sign out — and sign out is behind a
- * confirmation, since it is the one entry that throws away state.
+ * confirmation, since it is the one entry that throws away state. Admins also
+ * get an "Admin console" entry (UI-only gate; see auth/roles.js).
  *
  * Dismissal is handled here rather than with a library: pointerdown outside the
  * wrapper closes it (pointerdown, not click, so the menu is gone before the
@@ -29,7 +32,8 @@ export default function UserMenu({ onOpenCredits }) {
 
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // null | 'this' | 'everywhere' — which sign-out the confirmation is for.
+  const [confirmSignOut, setConfirmSignOut] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -60,10 +64,10 @@ export default function UserMenu({ onOpenCredits }) {
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
-      await logout();
+      await logout({ everywhere: confirmSignOut === 'everywhere' });
     } finally {
       setSigningOut(false);
-      setConfirmOpen(false);
+      setConfirmSignOut(null);
       navigate('/');
     }
   };
@@ -80,13 +84,13 @@ export default function UserMenu({ onOpenCredits }) {
           aria-label="Account menu"
           onClick={() => setOpen((v) => !v)}
         >
-          <Avatar user={user} size={28} />
+          <Avatar user={user} size={30} />
         </button>
 
         {open && (
           <div className="user-menu-panel" role="menu">
             <div className="user-menu-header">
-              <Avatar user={user} size={36} />
+              <Avatar user={user} size={40} />
               <div className="user-menu-identity">
                 <div className="user-menu-name">{user?.name || 'Account'}</div>
                 <div className="user-menu-email">{user?.email || ''}</div>
@@ -101,10 +105,7 @@ export default function UserMenu({ onOpenCredits }) {
               className="user-menu-item"
               onClick={runItem(() => setProfileOpen(true))}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              <User aria-hidden="true" />
               Profile
             </button>
 
@@ -114,10 +115,7 @@ export default function UserMenu({ onOpenCredits }) {
               className="user-menu-item"
               onClick={runItem(() => onOpenCredits?.())}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
+              <Coins aria-hidden="true" />
               Credits &amp; billing
             </button>
 
@@ -127,14 +125,21 @@ export default function UserMenu({ onOpenCredits }) {
               className="user-menu-item"
               onClick={runItem(() => navigate('/dashboard'))}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
+              <LayoutGrid aria-hidden="true" />
               My documents
             </button>
+
+            {isAdmin(user) && (
+              <button
+                type="button"
+                role="menuitem"
+                className="user-menu-item accent"
+                onClick={runItem(() => navigate('/admin'))}
+              >
+                <ShieldCheck aria-hidden="true" />
+                Admin console
+              </button>
+            )}
 
             <div className="user-menu-sep" />
 
@@ -142,14 +147,20 @@ export default function UserMenu({ onOpenCredits }) {
               type="button"
               role="menuitem"
               className="user-menu-item danger"
-              onClick={runItem(() => setConfirmOpen(true))}
+              onClick={runItem(() => setConfirmSignOut('this'))}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <path d="M16 17l5-5-5-5" />
-                <path d="M21 12H9" />
-              </svg>
+              <LogOut aria-hidden="true" />
               Sign out
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              className="user-menu-item danger"
+              onClick={runItem(() => setConfirmSignOut('everywhere'))}
+            >
+              <MonitorSmartphone aria-hidden="true" />
+              Sign out everywhere
             </button>
           </div>
         )}
@@ -162,14 +173,18 @@ export default function UserMenu({ onOpenCredits }) {
       />
 
       <ConfirmDialog
-        open={confirmOpen}
-        title="Sign out?"
-        message="You'll need to sign in again to get back to your documents. This device stays trusted, so you may not need a new code."
-        confirmLabel="Sign out"
+        open={Boolean(confirmSignOut)}
+        title={confirmSignOut === 'everywhere' ? 'Sign out everywhere?' : 'Sign out?'}
+        message={
+          confirmSignOut === 'everywhere'
+            ? 'Every browser and device signed in to your account will be signed out. Each will need to sign in again once its current session runs out.'
+            : "You'll need to sign in again to get back to your documents. This device stays trusted, so you may not need a new code."
+        }
+        confirmLabel={confirmSignOut === 'everywhere' ? 'Sign out everywhere' : 'Sign out'}
         destructive
         busy={signingOut}
         onConfirm={handleSignOut}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => setConfirmSignOut(null)}
       />
     </>
   );

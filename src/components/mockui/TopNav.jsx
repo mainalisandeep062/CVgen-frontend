@@ -1,20 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+import { Coins, LayoutGrid, PenLine, ShieldCheck } from 'lucide-react';
 
+import Brand from '@/components/mockui/Brand';
 import CreditsModal from '@/components/mockui/CreditsModal';
+import NotificationBell from '@/components/mockui/NotificationBell';
 import UserMenu from '@/components/mockui/UserMenu';
-import { getBalance } from '@/mock/credits';
+import { getMyBillingAccount } from '@/api/billing';
 import { ensureAvatarLoaded } from '@/auth/avatarStore';
+import { useAuth } from '@/context/AuthContext';
+import { isAdmin } from '@/auth/roles';
+
+const navClass = ({ isActive }) => `topnav-link${isActive ? ' active' : ''}`;
 
 /**
- * TopNav — shared app navigation from the mock design (logo, page links,
- * credits pill, account menu).
+ * TopNav — shared app navigation (logo, page links, credits pill,
+ * notifications, account menu).
  *
- * The credits pill opens the purchase modal; the balance comes from the mock
- * wallet and live-updates via the `cvgen:credits-changed` event the mock
- * service dispatches. The avatar opens UserMenu, which owns everything
+ * The credits pill opens the purchase modal; the balance is the REAL one from
+ * GET /api/billing/me, refetched on the `cvgen:credits-changed` event so an
+ * admin grant shows up without a reload. It stays hidden until the first read
+ * succeeds — a wrong number is worse than none. The avatar opens UserMenu,
+ * which owns everything
  * account-shaped (profile, sign out) — it used to sign the user out on a single
  * click, with no menu and no confirmation.
+ *
+ * The "Admin" link renders only when the decoded token carries ROLE_ADMIN. That
+ * is cosmetic — the /admin route guard and, ultimately, the backend decide.
  *
  * This is also where the profile picture is first read from the server, since
  * the nav is on every authenticated page. The retry matters: after a first-time
@@ -24,46 +36,68 @@ import { ensureAvatarLoaded } from '@/auth/avatarStore';
  * blocked waiting for it.
  */
 export default function TopNav() {
+  const { user } = useAuth();
   const [creditsOpen, setCreditsOpen] = useState(false);
-  const [balance, setBalance] = useState(getBalance);
+  const [balance, setBalance] = useState(null);
 
   useEffect(() => {
     ensureAvatarLoaded({ retryDelayMs: 4000 });
   }, []);
 
   useEffect(() => {
-    const sync = () => setBalance(getBalance());
+    let cancelled = false;
+    const sync = () => {
+      getMyBillingAccount()
+        .then((account) => {
+          if (!cancelled) setBalance(account?.balance ?? 0);
+        })
+        .catch(() => {
+          // Leave the pill hidden rather than showing a stale or invented
+          // balance; the bell and the rest of the nav still work.
+        });
+    };
+    sync();
     window.addEventListener('cvgen:credits-changed', sync);
-    return () => window.removeEventListener('cvgen:credits-changed', sync);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('cvgen:credits-changed', sync);
+    };
   }, []);
 
   return (
     <>
-      <nav className="topnav">
+      <nav className="topnav" aria-label="Main">
         <div className="container topnav-inner">
-          <Link to="/" className="topnav-logo">
-            CVGen
-          </Link>
+          <Brand compact />
           <div className="topnav-links">
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) => `topnav-link${isActive ? ' active' : ''}`}
-            >
-              Dashboard
+            <NavLink to="/dashboard" className={navClass}>
+              <LayoutGrid aria-hidden="true" />
+              <span className="topnav-link-label">Dashboard</span>
             </NavLink>
-            <NavLink
-              to="/builder"
-              className={({ isActive }) => `topnav-link${isActive ? ' active' : ''}`}
-            >
-              Builder
+            <NavLink to="/builder" className={navClass}>
+              <PenLine aria-hidden="true" />
+              <span className="topnav-link-label">Builder</span>
             </NavLink>
-            <div className="credit-pill" onClick={() => setCreditsOpen(true)}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-              {balance} credits
-            </div>
+            {isAdmin(user) && (
+              <NavLink to="/admin" className={navClass}>
+                <ShieldCheck aria-hidden="true" />
+                <span className="topnav-link-label">Admin</span>
+              </NavLink>
+            )}
+            <span className="topnav-sep" aria-hidden="true" />
+            {balance !== null && (
+              <button
+                type="button"
+                className="credit-pill"
+                onClick={() => setCreditsOpen(true)}
+                aria-label={`${balance} credits — see credit packs`}
+              >
+                <Coins aria-hidden="true" />
+                {balance}
+                <span className="credit-pill-label">credits</span>
+              </button>
+            )}
+            <NotificationBell />
             <UserMenu onOpenCredits={() => setCreditsOpen(true)} />
           </div>
         </div>

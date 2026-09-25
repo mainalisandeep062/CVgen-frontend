@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 
 import Modal from '@/components/mockui/Modal';
 import { showToast } from '@/components/mockui/toast';
@@ -192,17 +193,7 @@ export default function ProfilePictureModal({ open, onClose, onChanged }) {
                 {busy === 'upload' ? (
                   <span className="picture-spinner" />
                 ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
+                  <Plus aria-hidden="true" />
                 )}
               </span>
               <span className="picture-tile-label">Upload a photo</span>

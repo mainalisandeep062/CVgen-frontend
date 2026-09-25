@@ -8,7 +8,7 @@ import {
 import { jwtDecode } from 'jwt-decode';
 
 import { refreshAccessToken } from '@/api/axios';
-import { logout as logoutRequest } from '@/api/auth';
+import { logout as logoutRequest, logoutAll as logoutAllRequest } from '@/api/auth';
 import {
   getAccessToken,
   setAccessToken,
@@ -96,10 +96,14 @@ export function AuthProvider({ children }) {
    * The response is 200 with the standard envelope; nothing is read from it.
    * In-memory state is cleared regardless of whether the call succeeds, so
    * logout is never blocked by the network.
+   *
+   * `everywhere: true` calls /logout-all instead, which revokes the refresh
+   * token of every signed-in browser, not just this one. Those other sessions
+   * keep working only until their current access token expires.
    */
-  const logout = useCallback(async () => {
+  const logout = useCallback(async ({ everywhere = false } = {}) => {
     try {
-      await logoutRequest();
+      await (everywhere ? logoutAllRequest() : logoutRequest());
     } catch {
       // Best-effort — the cookie may already be gone or the server unreachable.
     }
